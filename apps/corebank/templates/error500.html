@@ -1,0 +1,28 @@
+<html>
+<head><title>Server Error in '/' Application.</title>
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='legacy.css') }}"></head>
+<body bgcolor="white">
+<span><h1><font face="Verdana" color="#a00000" size="5">Server Error in '/' Application.<hr width="100%" size="1" color="silver"></font></h1>
+
+<h2><font face="Verdana" size="4" color="maroon"><i>Object reference not set to an instance of an object.</i></font></h2>
+
+<font face="Verdana" size="2"><b>Description:</b> An unhandled exception occurred during the execution of the
+current web request. Please review the stack trace for more information about the error and where it originated.</font>
+<p><font face="Verdana" size="2"><b>Exception Details:</b> System.NullReferenceException: Object reference not set to an instance of an object.</font></p>
+<p><font face="Verdana" size="2"><b>Correlation Id:</b> {{ ref }}</font></p>
+
+<p><font face="Verdana" size="2"><b>Stack Trace:</b></font></p>
+<pre class="stack">
+[NullReferenceException: Object reference not set to an instance of an object.]
+   Meridian.CoreBank.Servicing.MemberDataAdapter.Fetch(String mbrNo) +214
+   Meridian.CoreBank.Servicing.Pages.MemberDetail.Page_Load(Object sender, EventArgs e) +97
+   System.Web.Util.CalliEventHandlerDelegateProxy.Callback(Object sender, EventArgs e) +51
+   System.Web.UI.Control.OnLoad(EventArgs e) +95
+   System.Web.UI.Control.LoadRecursive() +59
+   System.Web.UI.Page.ProcessRequestMain(Boolean includeStagesBeforeAsyncPoint, Boolean includeStagesAfterAsyncPoint) +2952
+</pre>
+<hr width="100%" size="1" color="silver">
+<font face="Verdana" size="1">Version Information: Microsoft .NET Framework Version:4.0.30319; ASP.NET Version:4.8.4515.0</font>
+</span>
+</body>
+</html>

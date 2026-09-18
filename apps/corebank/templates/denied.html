@@ -1,0 +1,24 @@
+{% extends "_layout.html" %}
+{% set heading = "ACCESS DENIED" %}
+{% block body %}
+<font face="Verdana, Arial" size="2" color="#a00000"><b>YOU ARE NOT AUTHORIZED TO VIEW THIS RECORD</b></font>
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+<table border="0" cellpadding="3" cellspacing="0">
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">{{ t.member_label }}</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ mbr }}</b></font></td>
+  </tr>
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">REASON CODE</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>SEC-0412</b></font></td>
+  </tr>
+</table>
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+<font face="Verdana, Arial" size="1" color="#444444">
+  CONTACT YOUR SECURITY ADMINISTRATOR IF YOU BELIEVE THIS IS IN ERROR.
+</font>
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+<form name="form1" method="get" action="{{ u('member_search') }}">
+  <input type="submit" value="BACK TO SEARCH">
+</form>
+{% endblock %}

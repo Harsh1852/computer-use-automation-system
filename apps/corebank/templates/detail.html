@@ -1,0 +1,46 @@
+{% extends "_layout.html" %}
+{% set heading = t.member_word ~ " DETAIL" %}
+{% block body %}
+<table border="0" cellpadding="2" cellspacing="0">
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">{{ t.member_label }}</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ m.number }}</b></font></td>
+    <td width="24"></td>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">NAME</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ m.name }}</b></font></td>
+  </tr>
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">STATUS</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ m.status }}</b></font></td>
+    <td></td>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">BRANCH</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ m.branch }}</b></font></td>
+  </tr>
+</table>
+
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+
+<table border="1" cellpadding="3" cellspacing="0" bordercolor="#888888" bgcolor="#ffffff">
+  <tr bgcolor="{{ t.accent2 }}">
+    <td><font face="Verdana, Arial" size="1"><b>ACCOUNT TYPE</b></font></td>
+    <td><font face="Verdana, Arial" size="1"><b>ACCOUNT NUMBER</b></font></td>
+    <td><font face="Verdana, Arial" size="1"><b>NICKNAME</b></font></td>
+    <td align="right"><font face="Verdana, Arial" size="1"><b>CURRENT BALANCE</b></font></td>
+  </tr>
+  {% for s in m.subaccounts %}
+  <tr>
+    <td><font face="Verdana, Arial" size="2">{{ s.acct_type }}</font></td>
+    <td><font face="Verdana, Arial" size="2">{{ s.number }}</font></td>
+    <td><font face="Verdana, Arial" size="2">{{ s.nickname }}</font></td>
+    <td align="right"><font face="Verdana, Arial" size="2">{{ s.balance }}</font></td>
+  </tr>
+  {% endfor %}
+</table>
+
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+
+<form name="form2" method="get" action="{{ u('subaccount_new') }}">
+  <input type="hidden" name="mbr" value="{{ m.number }}">
+  <input type="submit" value="OPEN NEW SUB-ACCOUNT">
+</form>
+{% endblock %}

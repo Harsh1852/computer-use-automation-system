@@ -1,0 +1,55 @@
+{% extends "_layout.html" %}
+{% set heading = "REVIEW SUB-ACCOUNT REQUEST" %}
+{% block body %}
+<font face="Verdana, Arial" size="2">
+  REVIEW THE DETAILS BELOW. PRESSING CONFIRM WILL OPEN THE ACCOUNT.
+</font>
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+
+<table border="1" cellpadding="3" cellspacing="0" bordercolor="#888888" bgcolor="#ffffff">
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">{{ t.member_label }}</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ d.mbr }}</b> {{ m.name }}</font></td>
+  </tr>
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">ACCOUNT TYPE</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ d.acct_type }}</b></font></td>
+  </tr>
+  {% if t.require_branch %}
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">BRANCH</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ d.branch }}</b></font></td>
+  </tr>
+  {% endif %}
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">NICKNAME</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ d.nickname }}</b></font></td>
+  </tr>
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">INITIAL DEPOSIT</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ d.deposit }}</b></font></td>
+  </tr>
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">FUNDING SOURCE</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ d.funding }}</b></font></td>
+  </tr>
+</table>
+
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+
+<table border="0" cellpadding="0" cellspacing="0"><tr>
+  <td>
+    <form name="form1" method="post" action="{{ u('subaccount_confirm') }}">
+      <input type="hidden" name="__VIEWSTATE" value="/wEPDwUKMTU2NjIyNzY0NWRk">
+      <input type="submit" name="ctl00$ContentPlaceHolder1$btnConfirm" id="{{ ctl.confirm }}" value="CONFIRM">
+    </form>
+  </td>
+  <td width="8"></td>
+  <td>
+    <form name="form2" method="get" action="{{ u('subaccount_new') }}">
+      <input type="hidden" name="mbr" value="{{ d.mbr }}">
+      <input type="submit" value="BACK">
+    </form>
+  </td>
+</tr></table>
+{% endblock %}

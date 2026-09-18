@@ -1,0 +1,29 @@
+{% extends "_layout.html" %}
+{% set heading = "SUB-ACCOUNT CONFIRMATION" %}
+{% block body %}
+<font face="Verdana, Arial" size="2" color="#005000"><b>SUB-ACCOUNT OPENED SUCCESSFULLY</b></font>
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+<table border="0" cellpadding="3" cellspacing="0">
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">NEW ACCOUNT NUMBER</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ number }}</b></font></td>
+  </tr>
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">{{ t.member_label }}</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ m.number }}</b> {{ m.name }}</font></td>
+  </tr>
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">ACCOUNT TYPE</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ d.acct_type }}</b></font></td>
+  </tr>
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">INITIAL DEPOSIT</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ d.deposit }}</b></font></td>
+  </tr>
+</table>
+<img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt="">
+<form name="form1" method="get" action="{{ u('member_detail') }}">
+  <input type="hidden" name="mbr" value="{{ m.number }}">
+  <input type="submit" value="RETURN TO DETAIL">
+</form>
+{% endblock %}

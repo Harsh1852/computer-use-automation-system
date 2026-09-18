@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+node_modules/
+.DS_Store
+
+# The take-home brief itself (not part of the deliverable)
+Assignment A — Computer-Use Automation System.pdf

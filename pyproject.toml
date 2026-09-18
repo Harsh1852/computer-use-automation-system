@@ -1,0 +1,42 @@
+[project]
+name = "cua"
+version = "0.1.0"
+description = "Computer-use automation: LLM discovery, typed capability artifacts, deterministic replay."
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.7",
+  "structlog>=24.1",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# The target application. Installed into the `app` image only.
+app = ["flask>=3.0"]
+# The automation runtime. Installed into the `cua` image only.
+runtime = [
+  "playwright>=1.47",
+  "openai>=1.40",
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "httpx>=0.27",
+  "python-dotenv>=1.0",
+]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+cua = "cua.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cua"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "llm: requires OPENAI_API_KEY and makes real model calls",
+  "integration: requires the CoreBank app to be reachable",
+]
+asyncio_mode = "auto"

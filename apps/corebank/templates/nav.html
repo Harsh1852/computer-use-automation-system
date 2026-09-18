@@ -1,0 +1,42 @@
+<html>
+<head>
+  <title>NAVIGATION</title>
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='legacy.css') }}">
+  <script type="text/javascript">
+    // Verbatim ASP.NET WebForms postback shim. The nav form targets the
+    // content frame by name, so a nav click swaps the other frame.
+    function __doPostBack(eventTarget, eventArgument) {
+      var theForm = document.forms['form1'];
+      theForm.__EVENTTARGET.value = eventTarget;
+      theForm.__EVENTARGUMENT.value = eventArgument;
+      theForm.submit();
+    }
+  </script>
+</head>
+<body bgcolor="{{ t.accent }}" topmargin="0" leftmargin="0" marginwidth="0" marginheight="0">
+<form name="form1" method="post" action="{{ u('nav_postback') }}" target="{{ t.content_frame }}">
+<input type="hidden" name="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" value="/wEPDwUKMTU2NjIyNzY0NWRk">
+<table width="100%" border="0" cellpadding="0" cellspacing="0">
+  <tr>
+    <td height="30" bgcolor="{{ t.accent }}" align="center">
+      <font face="Verdana, Arial" size="2" color="#ffffff"><b>{{ t.short }}</b></font>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <table width="100%" border="0" cellpadding="4" cellspacing="1" bgcolor="{{ t.accent2 }}">
+        <tr><td bgcolor="{{ t.accent }}">
+          <a href="javascript:__doPostBack('navSearch','')" class="navlink">{{ t.member_word }} SEARCH</a>
+        </td></tr>
+        <tr><td bgcolor="{{ t.accent }}">
+          <a href="javascript:__doPostBack('navSignOff','')" class="navlink">SIGN OFF</a>
+        </td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</form>
+</body>
+</html>

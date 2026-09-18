@@ -1,0 +1,73 @@
+{% extends "_layout.html" %}
+{% set heading = "OPEN SUB-ACCOUNT" %}
+{% block body %}
+<form name="form1" method="post" action="{{ u('subaccount_new') }}?mbr={{ m.number }}">
+<input type="hidden" name="__VIEWSTATE" value="/wEPDwUKMTU2NjIyNzY0NWRk">
+<input type="hidden" name="mbr" value="{{ m.number }}">
+<table border="0" cellpadding="3" cellspacing="0">
+  {% if error %}
+  <tr><td colspan="2">
+    <font face="Verdana, Arial" size="2" color="#a00000"><b>{{ error }}</b></font>
+  </td></tr>
+  {% endif %}
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">{{ t.member_label }}</font></td>
+    <td><font face="Verdana, Arial" size="2"><b>{{ m.number }}</b> &nbsp; {{ m.name }}</font></td>
+  </tr>
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">ACCOUNT TYPE</font></td>
+    <td>
+      <select name="ctl00$ContentPlaceHolder1$ddlAcctType" id="{{ ctl.acct_type }}">
+        <option value="">-- SELECT --</option>
+        {% for a in acct_types %}
+        <option value="{{ a }}" {% if form.acct_type == a %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </td>
+  </tr>
+  {% if t.require_branch %}
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">BRANCH</font></td>
+    <td>
+      <select name="ctl00$ContentPlaceHolder1$ddlBranch" id="{{ ctl.branch }}">
+        <option value="">-- SELECT --</option>
+        {% for b in branches %}
+        <option value="{{ b }}" {% if form.branch == b %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
+    </td>
+  </tr>
+  {% endif %}
+  <!-- <td> text, not <label for> -->
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">NICKNAME</font></td>
+    <td><input type="text" name="ctl00$ContentPlaceHolder1$txtNickname" id="{{ ctl.nickname }}"
+               size="24" maxlength="24" value="{{ form.nickname }}"></td>
+  </tr>
+  <!-- <td> text, not <label for> -->
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">INITIAL DEPOSIT</font></td>
+    <td><input type="text" name="ctl00$ContentPlaceHolder1$txtInitDep" id="{{ ctl.deposit }}"
+               size="12" maxlength="12" value="{{ form.deposit }}"></td>
+  </tr>
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">FUNDING SOURCE</font></td>
+    <td>
+      <select name="ctl00$ContentPlaceHolder1$ddlFundSrc" id="{{ ctl.funding }}">
+        <option value="">-- SELECT --</option>
+        {% for s in m.subaccounts %}
+        <option value="{{ s.number }}" {% if form.funding == s.number %}selected{% endif %}>{{ s.number }} ({{ s.acct_type }})</option>
+        {% endfor %}
+      </select>
+    </td>
+  </tr>
+  <tr>
+    <td></td>
+    <td><input type="submit" name="ctl00$ContentPlaceHolder1$btnContinue" id="{{ ctl.continue }}" value="CONTINUE"></td>
+  </tr>
+  <tr><td colspan="2">
+    <font face="Verdana, Arial" size="1" color="#444444">MINIMUM OPENING DEPOSIT IS $25.00.</font>
+  </td></tr>
+</table>
+</form>
+{% endblock %}

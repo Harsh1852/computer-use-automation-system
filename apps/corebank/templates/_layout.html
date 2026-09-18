@@ -1,0 +1,42 @@
+<html>
+<head>
+  <title>{{ t.short }} - {{ heading }}</title>
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='legacy.css') }}">
+</head>
+<body bgcolor="{{ t.bg }}">
+{% if interstitial %}{% include '_interstitial.html' %}{% endif %}
+<!-- outer chrome table -->
+<table width="100%" border="0" cellpadding="0" cellspacing="0">
+  <tr>
+    <td>
+      <!-- panel table -->
+      <table width="100%" border="1" cellpadding="0" cellspacing="0" bordercolor="{{ t.accent }}" bgcolor="{{ t.panel }}">
+        <tr>
+          <td bgcolor="{{ t.accent }}" height="22">
+            <img src="{{ url_for('static', filename='spacer.gif') }}" width="6" height="1" border="0" alt="">
+            <font face="Verdana, Arial" size="2" color="#ffffff"><b>{{ heading }}</b></font>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <!-- form table -->
+            <table border="0" cellpadding="4" cellspacing="0" width="100%">
+              <tr>
+                <td>
+{% block body %}{% endblock %}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table width="100%" border="0" cellpadding="2" cellspacing="0">
+  <tr><td align="right">
+    <font face="Verdana, Arial" size="1" color="#555555">{{ t.product }} v7.4.11 &nbsp;|&nbsp; TENANT: {{ t.id|upper }}</font>
+  </td></tr>
+</table>
+</body>
+</html>

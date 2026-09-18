@@ -1,0 +1,35 @@
+{% extends "_layout.html" %}
+{% set heading = "SIGN ON" %}
+{% block body %}
+<form name="form1" method="post" action="{{ u('login') }}">
+<table border="0" cellpadding="3" cellspacing="0">
+  <tr>
+    <td colspan="2">
+      <font face="Verdana, Arial" size="2"><b>{{ t.name|safe }}</b></font>
+    </td>
+  </tr>
+  <tr><td colspan="2"><img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="8" border="0" alt=""></td></tr>
+  {% if msg %}
+  <tr>
+    <td colspan="2">
+      <font face="Verdana, Arial" size="2" color="#a00000"><b>{{ msg }}</b></font>
+    </td>
+  </tr>
+  {% endif %}
+  <!-- Plain <td> text next to the input: no <label for>. This is what a real
+       legacy screen looks like and what forces a near-text locator. -->
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">USER ID</font></td>
+    <td><input type="text" name="ctl00$txtUserId" id="{{ ctl.user }}" size="24" maxlength="32"></td>
+  </tr>
+  <tr>
+    <td align="right"><font face="Verdana, Arial" size="2">PASSWORD</font></td>
+    <td><input type="password" name="ctl00$txtPassword" id="{{ ctl.pwd }}" size="24" maxlength="32"></td>
+  </tr>
+  <tr>
+    <td></td>
+    <td><input type="submit" name="ctl00$btnSignOn" id="{{ ctl.signon }}" value="SIGN ON"></td>
+  </tr>
+</table>
+</form>
+{% endblock %}

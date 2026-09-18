@@ -1,0 +1,40 @@
+{% extends "_layout.html" %}
+{% set heading = t.member_word ~ " SEARCH" %}
+{% block body %}
+<form name="form1" method="post" action="{{ u('member_search') }}">
+<input type="hidden" name="__VIEWSTATE" value="/wEPDwUKMTU2NjIyNzY0NWRk">
+<table border="0" cellpadding="3" cellspacing="0">
+  {% if error %}
+  <tr>
+    <td colspan="2">
+      <font face="Verdana, Arial" size="2" color="#a00000"><b>{{ error }}</b></font>
+    </td>
+  </tr>
+  {% endif %}
+  <!-- <td> text, not <label for> -->
+  <tr>
+    <td align="right" nowrap><font face="Verdana, Arial" size="2">{{ t.member_label }}</font></td>
+    <td>
+      <input type="text" name="ctl00$ContentPlaceHolder1$txtMbrNo" id="{{ ctl.mbr_no }}"
+             size="14" maxlength="10" value="{{ entered }}">
+    </td>
+  </tr>
+  <tr>
+    <td></td>
+    <td>
+      <input type="submit" name="ctl00$ContentPlaceHolder1$btnSearch" id="{{ ctl.search }}" value="SEARCH">
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="{{ url_for('static', filename='spacer.gif') }}" width="1" height="10" border="0" alt=""></td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <font face="Verdana, Arial" size="1" color="#444444">
+        ENTER A 5-DIGIT {{ t.member_word }} NUMBER AND PRESS SEARCH.
+      </font>
+    </td>
+  </tr>
+</table>
+</form>
+{% endblock %}

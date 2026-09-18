@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      target: app
+    container_name: corebank-app
+    environment:
+      APP_PASSWORD: ${APP_PASSWORD:-demo1234}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-dev-only-not-a-real-secret}
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:5000/healthz').read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

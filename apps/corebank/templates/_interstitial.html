@@ -1,0 +1,24 @@
+<div id="ctl00_mntShade" class="mnt-shade"></div>
+<div id="ctl00_mntDialog" class="mnt-dialog">
+  <table border="0" cellpadding="6" cellspacing="0" width="100%">
+    <tr>
+      <td bgcolor="#7a0000">
+        <font face="Verdana, Arial" size="2" color="#ffffff"><b>SYSTEM MAINTENANCE NOTICE</b></font>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <font face="Verdana, Arial" size="2">
+          SCHEDULED MAINTENANCE WILL OCCUR TONIGHT 23:00-01:00 CT.<br>
+          SERVICING FUNCTIONS MAY BE UNAVAILABLE DURING THIS WINDOW.
+        </font>
+      </td>
+    </tr>
+    <tr>
+      <td align="right">
+        <input type="button" id="ctl00_btnDismissNotice" value="DISMISS"
+               onclick="document.getElementById('ctl00_mntDialog').style.display='none';document.getElementById('ctl00_mntShade').style.display='none';">
+      </td>
+    </tr>
+  </table>
+</div>
