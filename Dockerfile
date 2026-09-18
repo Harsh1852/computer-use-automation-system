@@ -24,3 +24,25 @@ COPY apps/ /srv/apps/
 
 EXPOSE 5000
 CMD ["python", "-m", "apps.corebank.app"]
+
+# --------------------------------------------------------------- test ------
+# Runs the suite with no host-side Python install. Kept separate from `cua`
+# so unit tests do not need a browser or an X server to run.
+FROM python:3.11-slim AS test
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_SYSTEM_PYTHON=1 \
+    PYTHONPATH=/work/src
+
+WORKDIR /work
+
+RUN uv pip install --system --no-cache \
+      "pydantic>=2.7" "structlog>=24.1" "pyyaml>=6.0" \
+      "pytest>=8" "pytest-asyncio>=0.23" "jsonschema>=4.22"
+
+COPY . /work
+
+CMD ["pytest", "-q", "-m", "not llm"]

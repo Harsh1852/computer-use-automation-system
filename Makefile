@@ -1,14 +1,18 @@
 APP_URL ?= http://localhost:5000
 
-.PHONY: help up down logs reset inject faults
+.PHONY: help up down logs reset inject faults test
 
 help:
 	@echo "up                 bring up the stack"
 	@echo "down               tear it down"
 	@echo "logs               follow logs"
+	@echo "test               run the test suite (everything except llm)"
 	@echo "reset              clear injected faults and reseed the target app"
 	@echo "inject FAULT=slow  arm a fault on the target app"
 	@echo "faults             show armed faults"
+
+test:
+	docker compose --profile test run --rm --build tests
 
 up:
 	docker compose up --build -d

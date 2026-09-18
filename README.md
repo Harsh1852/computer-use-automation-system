@@ -6,9 +6,9 @@ is recorded as a typed, versioned **capability artifact**. That artifact is then
 the executor cannot safely proceed it escalates to a human who takes control of the *same live
 browser session*, fixes the situation, and hands control back so the run resumes.
 
-> **Build status:** Phase 1 of 8 complete — the target application. Subsequent phases add the
-> artifact schema, the surface abstraction, deterministic replay, the discovery agent, escalation,
-> policy, and the write-up.
+> **Build status:** Phases 1–2 of 8 complete — the target application and the artifact schema.
+> Subsequent phases add the surface abstraction, deterministic replay, the discovery agent,
+> escalation, policy, and the write-up.
 
 ---
 
@@ -87,6 +87,46 @@ The same blueprint is mounted again at `/t/summit-cu/` as a stand-in for a secon
 running the same vendor product: different branding, `ACCOUNT NUMBER` instead of `MEMBER NUMBER`,
 an extra required `BRANCH` dropdown on the sub-account form, and different frame `name` attributes
 (`sidebar`/`main` instead of `navFrame`/`contentFrame`).
+
+---
+
+## The capability artifact
+
+`src/cua/schema/` is pure Pydantic v2 and imports nothing else in the repo — the artifact is the
+contract between the discovery agent, the replay executor, the policy gate and any calling agent,
+so it must not be able to acquire a dependency on any one of them.
+
+Six defences are enforced by the type system rather than by the executor. Each makes a specific
+failure mode *unrepresentable*:
+
+| # | Defence | How it is enforced |
+|---|---|---|
+| 1 | Parameters are never inlined | `ValueRef` is exactly one of `param` / `literal` / `secret_ref`; a literal may not be tagged `pii`/`secret`, nor structurally resemble an SSN or a Luhn-valid card number |
+| 2 | Every step has a postcondition | `Step.postcondition` is required. There is no way to record "click and hope" |
+| 3 | Business outcomes are contract | `outcomes` declares the legitimate non-success answers, so "no such member" is a value, not an exception |
+| 4 | The locator ladder is recorded | Every candidate strategy is kept with its `matches_at_record` count; `css`/`xpath` are always `brittle` |
+| 5 | Tenancy is explicit | `TargetBinding` names vendor product, version and tenant; `variant_of` links a fork to its base |
+| 6 | Provenance is a hash | `transcript_sha256` only, and `extra="forbid"` means there is nowhere to put a transcript |
+
+A `wait` step accepts no target and no value — only the condition it waits on. **A fixed sleep is
+not expressible in the schema.**
+
+Replay returns a three-arm discriminated union, never a boolean plus exceptions:
+
+```python
+match result.status:
+    case "success":           result.outputs        # declared outputs
+    case "business_outcome":  result.code           # MEMBER_NOT_FOUND
+    case "failure":           result.kind, result.at_step, result.expected, result.observed
+```
+
+### Running the tests
+
+```bash
+make test
+```
+
+No host-side Python install: the suite runs in its own image.
 
 ---
 

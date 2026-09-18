@@ -14,3 +14,19 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # `make test`. Behind a profile so `docker compose up` never starts it.
+  # Sources are bind-mounted so the suite reruns without a rebuild.
+  tests:
+    build:
+      context: .
+      target: test
+    profiles: ["test"]
+    environment:
+      APP_URL: http://app:5000
+      APP_PASSWORD: ${APP_PASSWORD:-demo1234}
+    volumes:
+      - ./src:/work/src:ro
+      - ./tests:/work/tests:ro
+      - ./apps:/work/apps:ro
+      - ./artifacts:/work/artifacts:ro
