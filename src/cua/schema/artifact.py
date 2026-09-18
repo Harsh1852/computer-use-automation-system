@@ -224,7 +224,12 @@ class TextAbsent(Schema):
 class UrlMatches(Schema):
     kind: Literal["url_matches"] = "url_matches"
     pattern: str = Field(min_length=1)
-    """Glob against the current URL. May contain ``{param}`` placeholders."""
+    """Glob against a URL. May contain ``{param}`` placeholders."""
+
+    frame_path: list[str] = []
+    """Which document's location to match. A frameset navigates a child frame
+    without changing the top URL, so a checkpoint that cannot name the frame
+    cannot express "we reached the detail screen"."""
 
     @property
     def placeholders(self) -> set[str]:

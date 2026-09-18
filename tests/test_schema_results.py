@@ -215,13 +215,21 @@ def test_dom_fallback_nodes_are_marked():
     assert json.loads(node.model_dump_json())["a11y_visible"] is False
 
 
-def test_schema_package_has_no_playwright_dependency():
-    """The schema must stay pure: importing it must not drag in a driver."""
+def test_schema_package_has_no_driver_dependency():
+    """Importing the schema must not pull in a driver.
+
+    Checked in a subprocess: an in-process `sys.modules` assertion would only
+    prove that no earlier test had imported one.
+    """
+    import subprocess
     import sys
 
-    assert "playwright" not in sys.modules
-
-    class _Probe(BaseModel):
-        pass
-
-    assert issubclass(Success, BaseModel) and issubclass(_Probe, BaseModel)
+    probe = (
+        "import sys, cua.schema; "
+        "print(any(m.split('.')[0] in {'playwright','flask','openai','fastapi'} "
+        "for m in sys.modules))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "False"

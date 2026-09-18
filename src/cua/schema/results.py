@@ -26,6 +26,11 @@ from .artifact import TargetStrategy
 
 
 class FailureKind(str, Enum):
+    CONTRACT_VIOLATION = "CONTRACT_VIOLATION"
+    """The caller's arguments do not satisfy the declared contract. Distinct
+    from POLICY_BLOCKED (the gate refused a permitted-shape action) because
+    the fix belongs to the caller, not to the policy."""
+
     TARGET_NOT_FOUND = "TARGET_NOT_FOUND"
     """No rung of the locator ladder resolved to exactly one node in time."""
 

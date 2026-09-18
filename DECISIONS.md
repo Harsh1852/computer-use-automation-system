@@ -141,3 +141,63 @@ Deviations from the original sketch, each one a deliberate tightening:
   let `near_text` and `label_text` be implemented off the observation rather
   than off the DOM. All three have UIA/AX analogues — name provenance, tree
   order, and the nearest grouping ancestor.
+
+## Phase 4 — deterministic replay
+
+- **Detector precedence is the design, and declared outcomes win.** The
+  permission-denied screen is simultaneously a declared business outcome, an
+  HTTP 403 and an angry red banner. Ordering `DeclaredOutcomeDetector` first is
+  how the code refuses to conflate "the answer is no" with "the run broke".
+- **Detectors run inside the wait loop, ahead of the postcondition.** When the
+  app answers "no such member", `s6`'s postcondition will never become true.
+  Checking detectors first turns that into a returned answer instead of a
+  checkpoint timeout twenty-five seconds later.
+- **Drift means "resolved differently than when recorded", not "a fallback
+  won".** This artifact deliberately records `a11y_role_name` as the preferred
+  rung for a field that has no accessible name, so a fallback wins on every
+  single run. Defining drift as `winning_index > 0` would emit a signal every
+  time and bury the real one. It is now `winner.strategy !=
+  recorded.winning_strategy`, plus a separate signal when a rung's match count
+  moves away from `matches_at_record`.
+- **`Observation` gained `frame_urls` and `frame_statuses`.** A frameset
+  navigates a child frame without changing the top URL, so `page.url` cannot
+  express "we reached the detail screen" and a single `http_status` cannot say
+  *which* document returned 500. Both were found by running the acceptance
+  paths: the first made `s6`'s checkpoint unwritable, the second produced
+  `status 500 at http://app:5000/app`, which points a debugger at the wrong
+  page. `http_status` is now the worst status among frames on screen.
+- **Document status is tracked per URL, not "most recent".** Two frames load
+  concurrently, so "the last document response" is a race — whether an error
+  page is visible would depend on which frame finished second.
+- **Slow absorption is measured across the whole step, not the wait.** First
+  implementation measured only the checkpoint poll and reported nothing,
+  because the injected six-second delay lands *inside* the click, while the
+  browser waits for the page it triggered. A run that silently absorbs six
+  seconds is exactly the swallowing this record exists to prevent. Threshold is
+  `3 × observed_ms_p50` floored at 1s — derived from the artifact's own timing
+  evidence rather than a global constant.
+- **`FailureKind.CONTRACT_VIOLATION` added.** A caller passing `member_id:
+  "abc"` is not `POLICY_BLOCKED` (the gate refused a well-formed action) and
+  not `UNRECOVERABLE_CONDITION` (the app did something). The fix belongs to the
+  caller, and the taxonomy should say so. It fails before the browser opens.
+- **Only `safe_reversible` steps are retried.** Retrying a state-changing click
+  is how one confirmation becomes two accounts. The bound is on the declared
+  class of the action, not on a guess about whether the last attempt landed.
+- **Polling, with a justification.** "No fixed sleeps" means never waiting
+  *instead of* checking. The executor polls observations every 150ms, bounded
+  by the step's own `timeout_ms`, and the only other sleep is the retry backoff
+  the spec asks for. A desktop surface would poll the same way.
+- **Recovery is data, not code**, with three bounds: per-rule `max_attempts`
+  (schema-capped at 2), a global per-run budget, and no recovery at all for
+  conditions without a declared rule.
+- **Evidence redacts by declared sensitivity; the caller does not.** The
+  balance is tagged `pii`, so `result.json` and `run.jsonl` carry
+  `<redacted>` while the returned `Success.outputs` carries the real value.
+  The caller asked for it; the repository is not where it belongs.
+- **A business outcome exits 0, a failure exits 1.** Shell semantics should
+  match the result contract: "no such member" is an answer.
+- **`replay/conditions.py` is a module the layout did not name.** One evaluator
+  serves postconditions, outcome detectors and recovery triggers, so "how do I
+  know I got there" is defined once. It uses `fnmatchcase`, because `fnmatch`
+  normalises case via `os.path.normcase` and a checkpoint must not match
+  differently on a Windows runner than on Linux.

@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import sys
+import time
+from pathlib import Path
 
 from .schema import SurfaceKind
 from .surface import registry, render_table
@@ -114,6 +117,56 @@ async def _observe(args: argparse.Namespace) -> int:
     return 0
 
 
+def find_artifact(name: str) -> Path:
+    """Accept a path, or a capability id resolved to its highest version."""
+    direct = Path(name)
+    if direct.is_file():
+        return direct
+    matches = sorted(Path("artifacts").glob(f"{name}.v*.json"))
+    if not matches:
+        raise SystemExit(f"no artifact named {name!r} under artifacts/")
+    return matches[-1]
+
+
+async def _replay(args: argparse.Namespace) -> int:
+    from .evidence import RunLog
+    from .replay import ReplayExecutor
+    from .schema import Capability
+
+    path = find_artifact(args.artifact)
+    capability = Capability.model_validate_json(path.read_text(encoding="utf-8"))
+    params = json.loads(args.params) if args.params else {}
+
+    run_dir = args.evidence or f"evidence/replay-{int(time.time())}"
+    Path(run_dir).mkdir(parents=True, exist_ok=True)
+
+    surface = registry.create(
+        capability.target.surface_kind,
+        entry_url=capability.target.entry_point,
+        headless=args.headless,
+        run_dir=run_dir,
+    )
+    await surface.start()
+    log = RunLog(run_dir, "pending", also_stdout=args.trace)
+    try:
+        executor = ReplayExecutor(
+            surface, run_dir=run_dir, log=log, verbose_capture=args.capture_steps
+        )
+        result = await executor.run(capability, params)
+    finally:
+        log.close()
+        await surface.close()
+
+    print()
+    print(json.dumps(json.loads(result.model_dump_json()), indent=2))
+    print()
+    print(f"status   {result.status.upper()}")
+    print(f"evidence {run_dir}/")
+    # A business outcome is an answer, not an error: exit 0. Only a failure
+    # is a non-zero exit, so a caller's shell semantics match the contract.
+    return 1 if result.status == "failure" else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cua", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -128,6 +181,17 @@ def main(argv: list[str] | None = None) -> int:
     observe.add_argument("--no-login", action="store_true")
     observe.add_argument("--run-dir", default=None, help="write evidence here")
     observe.set_defaults(func=_observe)
+
+    replay = sub.add_parser("replay", help="replay a capability artifact")
+    replay.add_argument("--artifact", required=True, help="capability id or path")
+    replay.add_argument("--params", default="{}", help="JSON object of input params")
+    replay.add_argument("--evidence", default=None, help="evidence directory")
+    replay.add_argument("--headless", action="store_true")
+    replay.add_argument("--trace", action="store_true", help="echo the run log")
+    replay.add_argument(
+        "--capture-steps", action="store_true", help="screenshot every step"
+    )
+    replay.set_defaults(func=_replay)
 
     args = parser.parse_args(argv)
     return asyncio.run(args.func(args))

@@ -1,0 +1,339 @@
+{
+  "schema_version": "1.0",
+  "id": "lookup_member_balance",
+  "version": "1.0.0",
+  "title": "Look up a member's savings balance",
+  "description": "Signs on to the MERIDIAN CoreBank servicing console, searches for a member by number, and returns the CURRENT BALANCE of their savings sub-account. Read-only: no step changes state in the core.",
+  "approval": {
+    "state": "draft",
+    "replays": 0,
+    "failures": 0
+  },
+  "target": {
+    "vendor_product": "MERIDIAN CoreBank",
+    "product_version": "7.4.11",
+    "tenant_id": "meridian",
+    "entry_point": "http://app:5000/login",
+    "surface_kind": "legacy_web"
+  },
+  "contract": {
+    "inputs": [
+      {
+        "name": "member_id",
+        "type": "string",
+        "pattern": "^[0-9]{5}$",
+        "required": true,
+        "sensitivity": "internal",
+        "description": "Five-digit member number as printed on the servicing screen.",
+        "example": "10001"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "savings_balance",
+        "type": "string",
+        "from_step": "s7",
+        "sensitivity": "pii",
+        "description": "CURRENT BALANCE of the member's SAVINGS sub-account, normalised to a plain decimal string."
+      }
+    ]
+  },
+  "outcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member exists with that number at this institution.",
+      "detect": {
+        "kind": "text_present",
+        "text": "NO MATCHING MEMBER RECORD FOUND",
+        "frame_path": ["contentFrame"]
+      },
+      "terminal": true
+    },
+    {
+      "code": "PERMISSION_DENIED",
+      "description": "The signed-on operator is not entitled to view this member's record.",
+      "detect": {
+        "kind": "text_present",
+        "text": "YOU ARE NOT AUTHORIZED TO VIEW THIS RECORD",
+        "frame_path": ["contentFrame"]
+      },
+      "terminal": true
+    }
+  ],
+  "recoveries": [
+    {
+      "id": "dismiss_maintenance_notice",
+      "description": "The console interposes a maintenance banner at unpredictable times. Known, harmless, and dismissable without changing any state.",
+      "when": {
+        "kind": "text_present",
+        "text": "SYSTEM MAINTENANCE NOTICE"
+      },
+      "do": "dismiss",
+      "max_attempts": 1,
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "DISMISS",
+          "matches_at_record": 1
+        },
+        "fallbacks": [],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "a11y_snippet": "button \"DISMISS\" type=button"
+        }
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "s1",
+      "intent": "Open the CoreBank sign-on page",
+      "action": "navigate",
+      "frame_path": [],
+      "value": { "literal": "http://app:5000/login" },
+      "postcondition": {
+        "kind": "all_of",
+        "conditions": [
+          { "kind": "url_matches", "pattern": "*/login*" },
+          { "kind": "http_ok", "at_most": 399 },
+          { "kind": "node_present", "role": "button", "name": "SIGN ON" }
+        ]
+      },
+      "risk": "safe_reversible",
+      "timing": { "observed_ms_p50": 180, "timeout_ms": 15000 }
+    },
+    {
+      "id": "s2",
+      "intent": "Enter the service account user id",
+      "action": "type",
+      "frame_path": [],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "textbox",
+          "anchor": "USER ID",
+          "index": 0,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          { "strategy": "css", "value": "#ctl00_txtUserId", "matches_at_record": 1 }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "a11y_snippet": "cell \"USER ID\" -> textbox (no accessible name)"
+        }
+      },
+      "value": { "secret_ref": "APP_USER" },
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": { "secret_ref": "APP_USER" }
+      },
+      "risk": "safe_reversible",
+      "timing": { "observed_ms_p50": 40, "timeout_ms": 5000 }
+    },
+    {
+      "id": "s3",
+      "intent": "Enter the service account password",
+      "action": "type",
+      "frame_path": [],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "textbox",
+          "anchor": "PASSWORD",
+          "index": 0,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          { "strategy": "css", "value": "#ctl00_txtPassword", "matches_at_record": 1 }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "a11y_snippet": "cell \"PASSWORD\" -> textbox (no accessible name)"
+        }
+      },
+      "value": { "secret_ref": "APP_PASSWORD" },
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": { "secret_ref": "APP_PASSWORD" }
+      },
+      "risk": "safe_reversible",
+      "timing": { "observed_ms_p50": 40, "timeout_ms": 5000 }
+    },
+    {
+      "id": "s4",
+      "intent": "Sign on and load the servicing console",
+      "action": "click",
+      "frame_path": [],
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "SIGN ON",
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          { "strategy": "css", "value": "#ctl00_btnSignOn", "matches_at_record": 1 }
+        ],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "a11y_snippet": "button \"SIGN ON\" type=submit"
+        }
+      },
+      "postcondition": {
+        "kind": "all_of",
+        "conditions": [
+          { "kind": "url_matches", "pattern": "*/app" },
+          {
+            "kind": "node_present",
+            "role": "button",
+            "name": "SEARCH",
+            "frame_path": ["contentFrame"]
+          }
+        ]
+      },
+      "risk": "state_changing",
+      "timing": { "observed_ms_p50": 250, "timeout_ms": 25000 }
+    },
+    {
+      "id": "s5",
+      "intent": "Type the member number into the MEMBER NUMBER field",
+      "action": "type",
+      "frame_path": ["contentFrame"],
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "textbox",
+          "name": "MEMBER NUMBER",
+          "matches_at_record": 0
+        },
+        "fallbacks": [
+          {
+            "strategy": "near_text",
+            "role": "textbox",
+            "anchor": "MEMBER NUMBER",
+            "index": 0,
+            "matches_at_record": 1
+          },
+          {
+            "strategy": "css",
+            "value": "#ctl00_ContentPlaceHolder1_txtMbrNo",
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "a11y_snippet": "cell \"MEMBER NUMBER\" -> textbox (no accessible name)"
+        }
+      },
+      "value": { "param": "member_id" },
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": { "param": "member_id" }
+      },
+      "risk": "safe_reversible",
+      "timing": { "observed_ms_p50": 45, "timeout_ms": 5000 }
+    },
+    {
+      "id": "s6",
+      "intent": "Run the member search",
+      "action": "click",
+      "frame_path": ["contentFrame"],
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "SEARCH",
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "css",
+            "value": "#ctl00_ContentPlaceHolder1_btnSearch",
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "a11y_snippet": "button \"SEARCH\" type=submit"
+        }
+      },
+      "postcondition": {
+        "kind": "url_matches",
+        "pattern": "*/members/detail?mbr={member_id}",
+        "frame_path": ["contentFrame"]
+      },
+      "risk": "safe_reversible",
+      "timing": { "observed_ms_p50": 260, "timeout_ms": 25000 }
+    },
+    {
+      "id": "s7",
+      "intent": "Read the CURRENT BALANCE cell of the SAVINGS row",
+      "action": "read",
+      "frame_path": ["contentFrame"],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "cell",
+          "anchor": "SAVINGS",
+          "index": 3,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "xpath",
+            "value": "//tr[td[normalize-space()='SAVINGS']]/td[4]",
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "a11y_snippet": "row \"SAVINGS 10001-S01 PRIMARY SHARE 1,234.56\" -> cell[3]"
+        }
+      },
+      "output": {
+        "name": "savings_balance",
+        "extract": "text",
+        "transform": "money"
+      },
+      "postcondition": {
+        "kind": "text_present",
+        "text": "CURRENT BALANCE",
+        "frame_path": ["contentFrame"]
+      },
+      "risk": "safe_reversible",
+      "timing": { "observed_ms_p50": 30, "timeout_ms": 5000 }
+    }
+  ],
+  "success_condition": {
+    "kind": "all_of",
+    "conditions": [
+      {
+        "kind": "url_matches",
+        "pattern": "*/members/detail?mbr={member_id}",
+        "frame_path": ["contentFrame"]
+      },
+      {
+        "kind": "text_present",
+        "text": "CURRENT BALANCE",
+        "frame_path": ["contentFrame"]
+      }
+    ]
+  },
+  "provenance": {
+    "model": "hand-written",
+    "run_id": "handwritten-0001",
+    "transcript_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "recorded_at": "2026-09-18T00:00:00Z",
+    "goal": "Look up member 10001 and read their current savings balance.",
+    "recorder_version": "1.0"
+  }
+}

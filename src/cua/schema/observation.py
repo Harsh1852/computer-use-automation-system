@@ -20,8 +20,6 @@ import json
 from datetime import datetime
 from enum import Enum
 
-from enum import Enum
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from .artifact import SurfaceKind
@@ -130,6 +128,20 @@ class Observation(BaseModel):
     surface_kind: SurfaceKind = SurfaceKind.WEB
     http_status: int | None = None
 
+    frame_urls: dict[str, str] = {}
+    """Location of each frame, keyed by ``"/".join(frame_path)`` with ``""``
+    for the top document.
+
+    A frameset navigates a child frame without changing the top URL, so
+    ``page.url`` alone cannot express "we reached the detail screen". A
+    checkpoint has to be able to name *which* document it means. The desktop
+    analogue is the document or record identifier of a given pane."""
+
+    frame_statuses: dict[str, int] = {}
+    """HTTP status of the document each frame is currently showing, keyed the
+    same way as ``frame_urls``. ``http_status`` is the worst of these; this
+    map is what lets a failure name *which* document errored."""
+
     nodes: list[UiNode] = []
     banners: list[Banner] = []
     dialogs: list[Dialog] = []
@@ -156,6 +168,8 @@ class Observation(BaseModel):
                 [n.role, n.name, n.value, n.enabled, n.frame_path] for n in self.nodes
             ],
             "status": self.http_status,
+            "frame_statuses": self.frame_statuses,
+            "frames": self.frame_urls,
             "banners": sorted(b.text for b in self.banners),
             "dialogs": sorted((d.title or "") + d.text for d in self.dialogs),
         }

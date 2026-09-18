@@ -1,0 +1,21 @@
+url    http://app:5000/app
+title  MERIDIAN CoreBank - SERVICING CONSOLE
+status 500
+nodes  14   dialogs 0   banners 0
+
+ REF  FRAME          ROLE           NAME                                     VALUE          SRC
+-----------------------------------------------------------------------------------------------
+   0  navFrame       row            MERIDIAN CoreBank                                       text
+   1  navFrame       cell           MERIDIAN CoreBank                                       text
+   2  navFrame       row            MEMBER SEARCH                                           text
+   3  navFrame       link           MEMBER SEARCH                                           text
+   4  navFrame       row            SIGN OFF                                                text
+   5  navFrame       link           SIGN OFF                                                text
+   6  contentFrame   heading        Server Error in '/' Application.                        text
+   7  contentFrame   heading        Object reference not set to an instance                 text
+   8  contentFrame   generic        Description:                                            text
+   9  contentFrame   generic        Exception Details: System.NullReferenceE                text
+  10  contentFrame   generic        Correlation Id: CB-1789773983                           text
+  11  contentFrame   generic        Stack Trace:                                            text
+  12  contentFrame   generic        [NullReferenceException: Object referenc                text
+  13  contentFrame   generic        Version Information: Microsoft .NET Fram                text

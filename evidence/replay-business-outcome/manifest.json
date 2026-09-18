@@ -1,0 +1,42 @@
+{
+  "capability": {
+    "approval": "draft",
+    "id": "lookup_member_balance",
+    "schema_version": "1.0",
+    "version": "1.0.0"
+  },
+  "drift_signals": 0,
+  "environment": {
+    "app_url": "http://app:5000",
+    "git_sha": null,
+    "model": "",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "escalations": 0,
+  "params": {
+    "member_id": "99999"
+  },
+  "recoveries": 0,
+  "run_id": "run-e95a3a01d6",
+  "status": "business_outcome",
+  "target": {
+    "entry_point": "http://app:5000/login",
+    "product_version": "7.4.11",
+    "surface_kind": "legacy_web",
+    "tenant_id": "meridian",
+    "vendor_product": "MERIDIAN CoreBank"
+  },
+  "timings": {
+    "duration_ms": 3458,
+    "finished_at": "2026-09-18T23:24:20.251365+00:00",
+    "started_at": "2026-09-18T23:24:16.792612+00:00",
+    "steps_ms": {
+      "s1": 349,
+      "s2": 373,
+      "s3": 328,
+      "s4": 570,
+      "s5": 907
+    }
+  }
+}

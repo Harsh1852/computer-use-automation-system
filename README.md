@@ -6,8 +6,8 @@ is recorded as a typed, versioned **capability artifact**. That artifact is then
 the executor cannot safely proceed it escalates to a human who takes control of the *same live
 browser session*, fixes the situation, and hands control back so the run resumes.
 
-> **Build status:** Phases 1–3 of 8 complete — the target application, the artifact schema, and
-> the surface abstraction. Subsequent phases add deterministic replay, the discovery agent,
+> **Build status:** Phases 1–4 of 8 complete — the target application, the artifact schema, the
+> surface abstraction and deterministic replay. Subsequent phases add the discovery agent,
 > escalation, policy, and the write-up.
 
 ---
@@ -160,6 +160,43 @@ Node 10 is the whole problem in one line: the member-number field has **no acces
 because its label is plain `<td>` text. `a11y_role_name` finds nothing and the ladder falls
 through to a `near_text` anchor on node 9. The same page under `/t/summit-cu/` reports frames
 `sidebar`/`main` and an `ACCOUNT NUMBER` anchor — the per-tenant drift an overlay has to absorb.
+
+---
+
+## Deterministic replay
+
+No model is consulted anywhere on this path. Given an artifact and parameters, the same inputs
+produce the same steps and the same outputs.
+
+```bash
+make replay ARTIFACT=lookup_member_balance PARAMS='{"member_id":"10001"}'
+```
+
+One artifact, four classes of answer, decided only by what the application did:
+
+| Command | Result |
+|---|---|
+| `PARAMS='{"member_id":"10001"}'` | `SUCCESS` — `{"savings_balance": "1234.56"}`, 7 steps |
+| `PARAMS='{"member_id":"99999"}'` | `BUSINESS_OUTCOME` — `MEMBER_NOT_FOUND` at `s6`, exit **0** |
+| `PARAMS='{"member_id":"10003"}'` | `BUSINESS_OUTCOME` — `PERMISSION_DENIED` (the page is an HTTP 403) |
+| `make inject FAULT=slow` then replay | `SUCCESS` with a `SlowResponse` recovery: *step took 6594ms against a recorded p50 of 250ms* |
+| `make inject FAULT=interstitial` then replay | `SUCCESS` with a `dismiss_maintenance_notice` recovery |
+| `make inject FAULT=app_error` then replay | `FAILURE` — `UNRECOVERABLE_CONDITION` at `s4`, *status 500 in contentFrame at http://app:5000/members/search*, exit **1** |
+| `PARAMS='{"member_id":"abc"}'` | `FAILURE` — `CONTRACT_VIOLATION`, 0 steps, browser never opened |
+
+Three things that are deliberate:
+
+- **A declared outcome beats the HTTP error that carries it.** Member `10003` returns a real 403.
+  Because the artifact declares `PERMISSION_DENIED` and `DeclaredOutcomeDetector` runs first, the
+  caller is told the answer rather than handed a crash. Conflating those is the mistake the
+  ordering exists to prevent.
+- **Recoveries are reported, not swallowed.** A run that absorbs six seconds says so.
+- **A failure names the frame.** `status 500 in contentFrame at …/members/search`, not the shell
+  URL that returned 200.
+
+Each run writes `run.jsonl`, `result.json`, `manifest.json`, `screenshots/` and `observations/`
+into its evidence directory. Secrets and `pii`-tagged outputs are redacted there by their
+**declared sensitivity** — the caller receives the real balance, the repository does not.
 
 ### Running the tests
 

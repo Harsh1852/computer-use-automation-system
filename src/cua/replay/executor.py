@@ -1,0 +1,756 @@
+"""Deterministic replay.
+
+No model is consulted anywhere in this file. Given an artifact and a set of
+parameters, the same inputs produce the same steps, and every decision the
+executor makes is either declared in the artifact or is one of the fixed
+rules below.
+
+The loop, per step:
+
+1. observe
+2. run the standing detector set — before the action, not only after
+3. resolve the target through the recorded ladder
+4. act (the surface applies the lease check and the policy gate)
+5. wait for the postcondition, re-running detectors on every observation
+6. record evidence
+
+Waiting is the subtle part. Step 5 is not "sleep, then check": it polls
+observations until the postcondition holds, a detector fires, or the step's
+own `timeout_ms` expires. That ordering is what keeps a business outcome from
+being reported as a checkpoint failure — when the app answers "no such
+member", the postcondition will never become true, and the run must return
+the answer rather than time out complaining about it.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import fnmatch
+import os
+import re
+import time
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Protocol
+
+from ..evidence import EvidenceWriter, RunLog, utcnow, write_manifest
+from ..schema import (
+    Action,
+    ActionType,
+    BusinessOutcomeResult,
+    Capability,
+    DriftSignal,
+    EscalationRecord,
+    ExtractFrom,
+    Failure,
+    FailureKind,
+    Observation,
+    ParamType,
+    RecoveryRecord,
+    ReplayResult,
+    Risk,
+    Step,
+    Success,
+    Transform,
+    ValueRef,
+)
+from ..surface.base import (
+    Handle,
+    LeaseViolation,
+    PolicyViolation,
+    Surface,
+    SurfaceError,
+)
+from .conditions import ConditionEvaluator, Verdict, describe, interpolate
+from .detectors import DetectorConfig, DetectorSet, Finding, FindingKind, ScanContext
+from .recovery import RecoveryEngine
+from .resolver import StepResolver
+
+POLL_INTERVAL_S = 0.15
+"""Gap between observations while waiting on a condition.
+
+This is a polling cadence, not a synchronisation sleep: the executor never
+waits *instead of* checking, and never waits a fixed amount and then assumes.
+Every wait is bounded by the step's own recorded `timeout_ms`."""
+
+RETRY_BACKOFF_S = (0.4, 1.2)
+MAX_STEP_ATTEMPTS = 3  # the original plus two retries
+
+
+class Escalator(Protocol):
+    """Hands an unrecoverable-but-human-fixable condition to a person."""
+
+    async def escalate(self, request: "EscalationContext") -> "EscalationDecision": ...
+
+
+@dataclass
+class EscalationContext:
+    step: Step
+    finding: Finding
+    observation: Observation
+    escalation_count: int
+
+
+@dataclass
+class EscalationDecision:
+    resumed: bool
+    record: EscalationRecord | None = None
+    note: str = ""
+
+
+class NoEscalation:
+    """Fails the run instead of escalating.
+
+    A null object, not a stub: with no operator attached, the correct
+    behaviour for an unrecoverable condition is to stop with a clear failure,
+    never to guess. The escalation phase supplies a real implementation
+    without the executor growing a new call site.
+    """
+
+    async def escalate(self, request: EscalationContext) -> EscalationDecision:
+        return EscalationDecision(
+            resumed=False, note="no operator attached; escalation unavailable"
+        )
+
+
+@dataclass
+class RunState:
+    run_id: str
+    recoveries: list[RecoveryRecord] = field(default_factory=list)
+    drift: list[DriftSignal] = field(default_factory=list)
+    escalations: list[EscalationRecord] = field(default_factory=list)
+    outputs: dict[str, Any] = field(default_factory=dict)
+    step_timings: dict[str, int] = field(default_factory=dict)
+    steps_executed: int = 0
+    authenticated: bool = False
+    escalation_count: int = 0
+
+
+class ReplayExecutor:
+    def __init__(
+        self,
+        surface: Surface,
+        *,
+        run_dir: str,
+        log: RunLog | None = None,
+        evidence: EvidenceWriter | None = None,
+        escalator: Escalator | None = None,
+        detector_config: DetectorConfig | None = None,
+        secrets: Mapping[str, str] | None = None,
+        verbose_capture: bool = False,
+    ) -> None:
+        self.surface = surface
+        self.run_dir = run_dir
+        self.evidence = evidence or EvidenceWriter(run_dir, verbose=verbose_capture)
+        self.escalator = escalator or NoEscalation()
+        self.detector_config = detector_config or DetectorConfig()
+        self.secrets = dict(secrets) if secrets is not None else dict(os.environ)
+        self.resolver = StepResolver(surface)
+        self.evaluator = ConditionEvaluator(resolve_target=self._resolve_for_condition)
+        self._log = log
+
+    # --------------------------------------------------------------- driving
+
+    async def run(
+        self, capability: Capability, params: Mapping[str, Any]
+    ) -> ReplayResult:
+        run_id = f"run-{uuid.uuid4().hex[:10]}"
+        log = self._log or RunLog(self.run_dir, run_id)
+        state = RunState(run_id=run_id)
+        started_at = utcnow()
+        started = time.perf_counter()
+
+        log.bind(capability=capability.ref, tenant=capability.target.tenant_id)
+        log.event(
+            "run.start",
+            steps=len(capability.steps),
+            outcomes=[o.code for o in capability.outcomes],
+            approval=capability.approval.state.value,
+        )
+
+        detectors = DetectorSet(capability.outcomes, self.evaluator, self.detector_config)
+        recovery = RecoveryEngine(
+            surface=self.surface, evaluator=self.evaluator, rules=capability.recoveries
+        )
+
+        violation = self._validate_contract(capability, params)
+        if violation is not None:
+            return await self._finish(
+                self._fail(
+                    capability, state, FailureKind.CONTRACT_VIOLATION, "-",
+                    violation[0], violation[1],
+                ),
+                capability, state, params, started_at, started, log,
+            )
+
+        try:
+            result = await self._run_steps(
+                capability, params, state, detectors, recovery, log
+            )
+        except PolicyViolation as exc:
+            result = self._fail(
+                capability, state, FailureKind.POLICY_BLOCKED, state_step(state, capability),
+                "an action permitted by policy", f"{exc} (rule: {exc.rule})",
+            )
+        except LeaseViolation as exc:
+            result = self._fail(
+                capability, state, FailureKind.HUMAN_TIMEOUT,
+                state_step(state, capability), "the automation holds the lease", str(exc),
+            )
+        except SurfaceError as exc:
+            result = self._fail(
+                capability, state, FailureKind.SURFACE_ERROR,
+                state_step(state, capability), "a working surface", str(exc),
+            )
+
+        return await self._finish(
+            result, capability, state, params, started_at, started, log
+        )
+
+    async def _run_steps(
+        self, capability, params, state, detectors, recovery, log
+    ) -> ReplayResult:
+        for step in capability.steps:
+            outcome = await self._run_step(
+                capability, step, params, state, detectors, recovery, log
+            )
+            if outcome is not None:
+                return outcome
+            state.steps_executed += 1
+
+        observation = await self.surface.observe()
+        verdict = await self.evaluator.check(
+            capability.success_condition, observation, params=params
+        )
+        log.event(
+            "run.success_condition",
+            ok=verdict.ok,
+            expected=verdict.expected,
+            observed=verdict.observed,
+        )
+        if not verdict.ok:
+            await self.evidence.step_capture(self.surface, "success-check", force=True)
+            return self._fail(
+                capability, state, FailureKind.CHECKPOINT_FAILED, capability.steps[-1].id,
+                verdict.expected, verdict.observed,
+            )
+
+        return Success(
+            capability_id=capability.id,
+            capability_version=capability.version,
+            run_id=state.run_id,
+            evidence_ref=self.run_dir,
+            outputs=state.outputs,
+            steps_executed=state.steps_executed,
+            recoveries=state.recoveries,
+            drift=state.drift,
+            escalations=state.escalations,
+        )
+
+    # ------------------------------------------------------------- one step
+
+    async def _run_step(
+        self, capability, step: Step, params, state, detectors, recovery, log
+    ) -> ReplayResult | None:
+        attempts = MAX_STEP_ATTEMPTS if self._retryable(step) else 1
+        step_started = time.perf_counter()
+
+        for attempt in range(1, attempts + 1):
+            observation = await self.surface.observe()
+            ctx = ScanContext(
+                params=params, step=step, authenticated=state.authenticated
+            )
+
+            guard = await self._guard(
+                capability, step, observation, ctx, state, detectors, recovery, params, log
+            )
+            if guard is not None:
+                return guard
+
+            observation = await self.surface.observe()
+            resolution = await self.resolver.resolve(step, observation)
+            if resolution.drift is not None:
+                state.drift.append(resolution.drift)
+                log.event(
+                    "step.drift",
+                    step=step.id,
+                    expected=resolution.drift.expected_strategy.value,
+                    winning=resolution.drift.winning_strategy.value,
+                    note=resolution.drift.note,
+                )
+
+            if not resolution.ok and step.action in _NEEDS_ELEMENT:
+                if attempt < attempts:
+                    await self._backoff(attempt, step, state, log, "target not yet present")
+                    continue
+                await self.evidence.step_capture(self.surface, f"{step.id}-notfound", force=True)
+                self.evidence.observation_dump(observation, f"{step.id}-notfound")
+                return self._fail(
+                    capability, state, FailureKind.TARGET_NOT_FOUND, step.id,
+                    resolution.expected, resolution.observed,
+                )
+
+            action = self._build_action(step, params)
+            log.event(
+                "step.act",
+                step=step.id,
+                intent=step.intent,
+                action=step.action.value,
+                risk=step.risk.value,
+                frame="/".join(step.frame_path) or "(top)",
+                target=(resolution.handle.description if resolution.handle else None),
+                strategy=(resolution.handle.strategy.value if resolution.handle else None),
+                value=self._loggable_value(step, action, params),
+                attempt=attempt,
+            )
+
+            result = await self.surface.act(action, resolution.handle)
+            if not result.ok:
+                if attempt < attempts:
+                    await self._backoff(attempt, step, state, log, result.detail or "action failed")
+                    continue
+                await self.evidence.step_capture(self.surface, f"{step.id}-actfail", force=True)
+                return self._fail(
+                    capability, state, FailureKind.SURFACE_ERROR, step.id,
+                    f"{step.action.value} to succeed", result.detail or "action failed",
+                )
+
+            if step.action is ActionType.READ:
+                self._bind_output(capability, step, result.read_value, state, log)
+
+            settled = await self._await_postcondition(
+                capability, step, params, state, detectors, recovery, log
+            )
+            if isinstance(settled, (Success, BusinessOutcomeResult, Failure)):
+                return settled
+            if settled is True:
+                took_ms = int((time.perf_counter() - step_started) * 1000)
+                state.step_timings[step.id] = took_ms
+                self._note_if_slow(step, took_ms, state, log)
+                await self.evidence.step_capture(self.surface, f"{step.id}-{step.action.value}")
+                return None
+
+            if attempt < attempts:
+                await self._backoff(attempt, step, state, log, "postcondition not met")
+                continue
+
+            observation = await self.surface.observe()
+            verdict = await self.evaluator.check(
+                step.postcondition, observation, params=params, step=step, secrets=self.secrets
+            )
+            await self.evidence.step_capture(self.surface, f"{step.id}-checkpoint", force=True)
+            self.evidence.observation_dump(observation, f"{step.id}-checkpoint")
+            return self._fail(
+                capability, state, FailureKind.CHECKPOINT_FAILED, step.id,
+                verdict.expected, verdict.observed,
+            )
+
+        return None  # pragma: no cover - loop always returns or continues
+
+    # ------------------------------------------------------------- the guard
+
+    async def _guard(
+        self, capability, step, observation, ctx, state, detectors, recovery, params, log
+    ) -> ReplayResult | None:
+        """Standing detectors, resolved in precedence order.
+
+        Returns a terminal result, or None when the run may proceed. Recovery
+        loops here rather than in the caller so a dismissed modal is
+        immediately re-checked: dismissing one thing can reveal another.
+        """
+        for _ in range(recovery.budget + 1):
+            finding = await detectors.scan(observation, ctx)
+            if finding is None:
+                return None
+
+            log.event(
+                "guard.finding",
+                step=step.id,
+                detector=finding.detector,
+                kind=finding.kind.value,
+                message=finding.message,
+                code=finding.code,
+            )
+
+            if finding.kind is FindingKind.BUSINESS_OUTCOME:
+                await self.evidence.step_capture(self.surface, f"{step.id}-outcome", force=True)
+                self.evidence.observation_dump(observation, f"{step.id}-outcome")
+                return BusinessOutcomeResult(
+                    capability_id=capability.id,
+                    capability_version=capability.version,
+                    run_id=state.run_id,
+                    evidence_ref=self.run_dir,
+                    code=finding.code or "UNKNOWN",
+                    message=finding.message,
+                    at_step=step.id,
+                    terminal=finding.terminal,
+                    steps_executed=state.steps_executed,
+                    recoveries=state.recoveries,
+                    drift=state.drift,
+                )
+
+            rule = await recovery.match(observation, params)
+            if rule is not None:
+                outcome = await recovery.apply(rule, step, observation, params)
+                if outcome.applied and outcome.record is not None:
+                    state.recoveries.append(outcome.record)
+                    log.event(
+                        "guard.recovered",
+                        step=step.id,
+                        rule=rule.id,
+                        action=rule.do.value,
+                        attempt=outcome.record.attempt,
+                        note=outcome.record.note,
+                    )
+                    observation = await self.surface.observe()
+                    continue
+                log.event("guard.recovery_exhausted", step=step.id, detail=outcome.detail)
+
+            if finding.kind is FindingKind.AUTH_WALL:
+                decision = await self._escalate(step, finding, observation, state, log)
+                if decision.resumed:
+                    observation = await self.surface.observe()
+                    continue
+                return self._fail(
+                    capability, state, FailureKind.UNRECOVERABLE_CONDITION, step.id,
+                    finding.expected, f"{finding.observed} ({decision.note})",
+                )
+
+            await self.evidence.step_capture(self.surface, f"{step.id}-{finding.kind.value}", force=True)
+            self.evidence.observation_dump(observation, f"{step.id}-{finding.kind.value}")
+            return self._fail(
+                capability, state, FailureKind.UNRECOVERABLE_CONDITION, step.id,
+                finding.expected, finding.observed,
+            )
+
+        return self._fail(
+            capability, state, FailureKind.UNRECOVERABLE_CONDITION, step.id,
+            "a recoverable condition to clear",
+            "the same condition kept reappearing after recovery",
+        )
+
+    # ----------------------------------------------------------- the waiting
+
+    async def _await_postcondition(
+        self, capability, step, params, state, detectors, recovery, log
+    ) -> bool | ReplayResult:
+        """Poll until the checkpoint holds, a detector fires, or time runs out.
+
+        Detectors are checked on every observation, ahead of the postcondition.
+        That order is what makes "no such member" a returned answer instead of
+        a checkpoint timeout.
+        """
+        deadline = time.perf_counter() + step.timing.timeout_ms / 1000
+        started = time.perf_counter()
+
+        while True:
+            observation = await self.surface.observe()
+            ctx = ScanContext(params=params, step=step, authenticated=state.authenticated)
+
+            guard = await self._guard(
+                capability, step, observation, ctx, state, detectors, recovery, params, log
+            )
+            if guard is not None:
+                return guard
+
+            observation = await self.surface.observe()
+            verdict = await self.evaluator.check(
+                step.postcondition, observation, params=params, step=step, secrets=self.secrets
+            )
+            elapsed = time.perf_counter() - started
+
+            if verdict.ok:
+                # "We have been past sign-on" is derived from where the run
+                # actually is, not from how a step was worded. Without it the
+                # login page at step one is indistinguishable from a session
+                # that just died.
+                top = observation.frame_urls.get("", observation.url)
+                if not any(
+                    fnmatch.fnmatchcase(top, g)
+                    for g in self.detector_config.login_url_globs
+                ):
+                    state.authenticated = True
+                log.event(
+                    "step.checkpoint",
+                    step=step.id, ok=True, expected=verdict.expected,
+                    elapsed_ms=int(elapsed * 1000),
+                )
+                return True
+
+            if time.perf_counter() >= deadline:
+                log.event(
+                    "step.checkpoint",
+                    step=step.id, ok=False, expected=verdict.expected,
+                    observed=verdict.observed, elapsed_ms=int(elapsed * 1000),
+                )
+                return False
+
+            await asyncio.sleep(POLL_INTERVAL_S)
+
+    @staticmethod
+    def _slow_threshold_ms(step: Step) -> int:
+        """Three times the recorded p50, floored at a second.
+
+        Derived from the artifact's own timing evidence rather than a global
+        constant: a step recorded at 40ms and one recorded at 6s have very
+        different ideas of "slow"."""
+        return max(1_000, step.timing.observed_ms_p50 * 3)
+
+    def _note_if_slow(self, step: Step, took_ms: int, state: RunState, log) -> None:
+        """A step that took far longer than recorded absorbed something.
+
+        Measured across the whole step, not just the wait: the transient
+        delay usually lands inside the action itself, while a click is
+        waiting for the page it triggered. Measuring only the checkpoint
+        poll would report nothing and quietly hide the condition — which is
+        the behaviour this record exists to prevent.
+        """
+        threshold = self._slow_threshold_ms(step)
+        if took_ms <= threshold:
+            return
+        record = RecoveryRecord(
+            at_step=step.id,
+            condition="SlowResponse",
+            action="extended_wait",
+            duration_ms=took_ms,
+            note=(
+                f"step took {took_ms}ms against a recorded p50 of "
+                f"{step.timing.observed_ms_p50}ms (threshold {threshold}ms)"
+            ),
+        )
+        state.recoveries.append(record)
+        log.event(
+            "step.slow",
+            step=step.id,
+            elapsed_ms=took_ms,
+            p50_ms=step.timing.observed_ms_p50,
+            threshold_ms=threshold,
+        )
+
+    async def _backoff(self, attempt, step, state, log, reason: str) -> None:
+        delay = RETRY_BACKOFF_S[min(attempt, len(RETRY_BACKOFF_S)) - 1]
+        state.recoveries.append(
+            RecoveryRecord(
+                at_step=step.id,
+                condition="TransientFailure",
+                action="retry_step",
+                attempt=attempt,
+                duration_ms=int(delay * 1000),
+                note=reason,
+            )
+        )
+        log.event("step.retry", step=step.id, attempt=attempt, reason=reason, delay_s=delay)
+        await asyncio.sleep(delay)
+
+    async def _escalate(self, step, finding, observation, state, log) -> EscalationDecision:
+        state.escalation_count += 1
+        log.event(
+            "escalation.raised",
+            step=step.id, reason=finding.kind.value, count=state.escalation_count,
+        )
+        await self.evidence.step_capture(self.surface, f"{step.id}-escalation", force=True)
+        decision = await self.escalator.escalate(
+            EscalationContext(
+                step=step, finding=finding, observation=observation,
+                escalation_count=state.escalation_count,
+            )
+        )
+        if decision.record is not None:
+            state.escalations.append(decision.record)
+        log.event("escalation.resolved", step=step.id, resumed=decision.resumed, note=decision.note)
+        return decision
+
+    # -------------------------------------------------------------- binding
+
+    def _validate_contract(
+        self, capability: Capability, params: Mapping[str, Any]
+    ) -> tuple[str, str] | None:
+        for spec in capability.contract.inputs:
+            if spec.name not in params:
+                if spec.required:
+                    return (f"required input {spec.name!r}", "not supplied")
+                continue
+            value = str(params[spec.name])
+            if spec.pattern and not re.fullmatch(spec.pattern, value):
+                shown = "<redacted>" if spec.sensitivity.restricted else repr(value)
+                return (f"{spec.name} matching {spec.pattern!r}", f"{spec.name}={shown}")
+        declared = capability.contract.input_names
+        if extra := set(params) - declared:
+            return ("only declared inputs", f"unexpected: {sorted(extra)}")
+
+        for ref_name in self._secret_refs(capability):
+            if ref_name not in self.secrets:
+                return (f"environment variable {ref_name}", "not set")
+        return None
+
+    @staticmethod
+    def _secret_refs(capability: Capability) -> set[str]:
+        return {
+            s.value.secret_ref
+            for s in capability.steps
+            if s.value is not None and s.value.secret_ref is not None
+        }
+
+    def _resolve_value(self, ref: ValueRef, params: Mapping[str, Any]) -> str:
+        if ref.secret_ref is not None:
+            return self.secrets[ref.secret_ref]
+        if ref.param is not None:
+            return str(params[ref.param])
+        return interpolate(ref.literal or "", params)
+
+    def _build_action(self, step: Step, params: Mapping[str, Any]) -> Action:
+        value = self._resolve_value(step.value, params) if step.value else None
+        sensitive = bool(step.value and step.value.sensitivity.restricted)
+        return Action(
+            type=step.action,
+            step_id=step.id,
+            intent=step.intent,
+            risk=step.risk,
+            url=value if step.action is ActionType.NAVIGATE else None,
+            text=value if step.action in (ActionType.TYPE, ActionType.SELECT) else None,
+            option=value if step.action is ActionType.SELECT else None,
+            extract=(step.output.extract if step.output else None),
+            sensitive=sensitive,
+            timeout_ms=step.timing.timeout_ms,
+        )
+
+    def _loggable_value(self, step, action, params) -> str | None:
+        if step.value is None:
+            return None
+        if step.value.sensitivity.restricted:
+            return "<redacted>"
+        return action.url or action.text or action.option
+
+    def _bind_output(self, capability, step, raw, state, log) -> None:
+        binding = step.output
+        value = extract_value(raw, binding.pattern, binding.transform)
+        declared = next(
+            (f for f in capability.contract.outputs if f.name == binding.name), None
+        )
+        coerced = coerce(value, declared.type if declared else ParamType.STRING)
+        state.outputs[binding.name] = coerced
+        log.event(
+            "step.read",
+            step=step.id,
+            output=binding.name,
+            sensitivity=(declared.sensitivity.value if declared else "unknown"),
+            value=(
+                "<redacted>"
+                if declared is not None and declared.sensitivity.restricted
+                else coerced
+            ),
+        )
+
+    async def _resolve_for_condition(self, step: Step) -> Handle | None:
+        resolution = await self.resolver.resolve(step, await self.surface.observe())
+        return resolution.handle
+
+    @staticmethod
+    def _retryable(step: Step) -> bool:
+        """Only safe, reversible steps are retried.
+
+        Retrying a state-changing click is how one confirmation becomes two
+        accounts. The bound is on the *class of action*, not on a guess about
+        whether the last attempt took effect.
+        """
+        return step.risk is Risk.SAFE_REVERSIBLE
+
+    # -------------------------------------------------------------- finishing
+
+    def _fail(self, capability, state, kind, at_step, expected, observed) -> Failure:
+        return Failure(
+            capability_id=capability.id,
+            capability_version=capability.version,
+            run_id=state.run_id,
+            evidence_ref=self.run_dir,
+            kind=kind,
+            at_step=at_step,
+            expected=expected,
+            observed=observed,
+            steps_executed=state.steps_executed,
+            recoveries=state.recoveries,
+            drift=state.drift,
+            escalations=state.escalations,
+        )
+
+    async def _finish(
+        self, result, capability, state, params, started_at, started, log
+    ) -> ReplayResult:
+        result = result.model_copy(
+            update={"duration_ms": int((time.perf_counter() - started) * 1000)}
+        )
+        self.evidence.write_result(result, capability)
+        write_manifest(
+            self.run_dir,
+            capability=capability,
+            run_id=state.run_id,
+            params=params,
+            started_at=started_at,
+            finished_at=utcnow(),
+            status=result.status,
+            step_timings=state.step_timings,
+            extra={
+                "recoveries": len(state.recoveries),
+                "drift_signals": len(state.drift),
+                "escalations": len(state.escalations),
+            },
+        )
+        log.event(
+            "run.finish",
+            status=result.status,
+            steps_executed=state.steps_executed,
+            duration_ms=result.duration_ms,
+            recoveries=len(state.recoveries),
+            drift=len(state.drift),
+        )
+        if self._log is None:
+            log.close()
+        return result
+
+
+_NEEDS_ELEMENT = {ActionType.CLICK, ActionType.TYPE, ActionType.SELECT, ActionType.READ}
+
+_MONEY = re.compile(r"-?[\d,]+(?:\.\d+)?")
+
+
+def state_step(state: RunState, capability: Capability) -> str:
+    index = min(state.steps_executed, len(capability.steps) - 1)
+    return capability.steps[index].id
+
+
+def extract_value(raw: str | None, pattern: str | None, transform: Transform) -> str:
+    text = raw or ""
+    if pattern:
+        match = re.search(pattern, text)
+        text = match.group(1) if match else ""
+    if transform is Transform.STRIP:
+        return text.strip()
+    if transform is Transform.UPPER:
+        return text.strip().upper()
+    if transform is Transform.DIGITS:
+        return re.sub(r"\D", "", text)
+    if transform is Transform.MONEY:
+        match = _MONEY.search(text)
+        return match.group(0).replace(",", "") if match else ""
+    return text
+
+
+def coerce(value: str, param_type: ParamType) -> Any:
+    if param_type is ParamType.INTEGER:
+        return int(float(value)) if value else 0
+    if param_type is ParamType.NUMBER:
+        return float(value) if value else 0.0
+    if param_type is ParamType.BOOLEAN:
+        return value.strip().lower() in {"true", "yes", "1", "y"}
+    return value
+
+
+__all__ = [
+    "EscalationContext",
+    "EscalationDecision",
+    "Escalator",
+    "NoEscalation",
+    "ReplayExecutor",
+    "coerce",
+    "extract_value",
+]

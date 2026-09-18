@@ -1,0 +1,25 @@
+{
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 4387,
+  "escalations": [],
+  "evidence_ref": "evidence/replay-recovered-modal",
+  "outputs": {
+    "savings_balance": "<redacted>"
+  },
+  "recoveries": [
+    {
+      "action": "dismiss",
+      "at_step": "s4",
+      "attempt": 1,
+      "condition": "text_present 'SYSTEM MAINTENANCE NOTICE'",
+      "duration_ms": 66,
+      "note": "dismissed via button 'DISMISS'",
+      "rule_id": "dismiss_maintenance_notice"
+    }
+  ],
+  "run_id": "run-3c33fdba4b",
+  "status": "success",
+  "steps_executed": 7
+}

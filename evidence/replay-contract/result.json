@@ -1,0 +1,16 @@
+{
+  "at_step": "-",
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 0,
+  "escalations": [],
+  "evidence_ref": "evidence/replay-contract",
+  "expected": "member_id matching '^[0-9]{5}$'",
+  "kind": "CONTRACT_VIOLATION",
+  "observed": "member_id='abc'",
+  "recoveries": [],
+  "run_id": "run-a15b7436e4",
+  "status": "failure",
+  "steps_executed": 0
+}

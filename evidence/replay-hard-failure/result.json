@@ -1,0 +1,16 @@
+{
+  "at_step": "s4",
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 1832,
+  "escalations": [],
+  "evidence_ref": "evidence/replay-hard-failure",
+  "expected": "http status <= 399",
+  "kind": "UNRECOVERABLE_CONDITION",
+  "observed": "status 500 in contentFrame at http://app:5000/members/search",
+  "recoveries": [],
+  "run_id": "run-1fe8e96cbf",
+  "status": "failure",
+  "steps_executed": 3
+}

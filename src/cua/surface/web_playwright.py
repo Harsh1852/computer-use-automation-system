@@ -118,7 +118,7 @@ class WebPlaywrightSurface:
         self._observation: Observation | None = None
         self._stale = True
         self._paused = False
-        self._last_doc_status: int | None = None
+        self._status_by_url: dict[str, int] = {}
 
     # ------------------------------------------------------------ lifecycle
 
@@ -159,12 +159,16 @@ class WebPlaywrightSurface:
         return self._page
 
     def _note_response(self, response: Any) -> None:
-        # Status of the most recent *document* response, in any frame. The
-        # legacy app renders a 403 or a 500 as a normal-looking page, so the
-        # status code is the only reliable signal for HttpErrorDetector.
+        """Remember each document response *by URL*, not just the latest.
+
+        A frameset loads several documents at once, so "the last document
+        response" is a race: whether an error page is visible would depend on
+        which frame happened to finish second. Keyed by URL, each frame's
+        status can be looked up for the document it is actually showing.
+        """
         try:
             if response.request.resource_type == "document":
-                self._last_doc_status = response.status
+                self._status_by_url[response.url] = response.status
         except PlaywrightError:
             pass
 
@@ -188,8 +192,15 @@ class WebPlaywrightSurface:
         title = ""
         ref = 0
 
+        frame_urls: dict[str, str] = {}
+        frame_statuses: dict[str, int] = {}
+        statuses: list[int] = []
         for frame in page.frames:
             frame_path = self._frame_path(frame)
+            frame_urls["/".join(frame_path)] = frame.url
+            if (status := self._status_by_url.get(frame.url)) is not None:
+                frame_statuses["/".join(frame_path)] = status
+                statuses.append(status)
             try:
                 scanned = await frame.evaluate_handle(_SCANNER)
             except PlaywrightError:
@@ -259,7 +270,12 @@ class WebPlaywrightSurface:
             url=page.url,
             title=title or (await page.title() if page else ""),
             surface_kind=self.kind,
-            http_status=self._last_doc_status,
+            # The worst status among the documents currently on screen: an
+            # error page in the content frame is an error page, whatever the
+            # shell around it returned.
+            http_status=(max(statuses) if statuses else None),
+            frame_statuses=frame_statuses,
+            frame_urls=frame_urls,
             nodes=nodes,
             banners=banners,
             dialogs=dialogs,
@@ -462,7 +478,7 @@ class WebPlaywrightSurface:
                 action.url, wait_until="domcontentloaded", timeout=timeout
             )
             if response is not None:
-                self._last_doc_status = response.status
+                self._status_by_url[response.url] = response.status
             await self._settle(timeout)
             return None, page.url
 

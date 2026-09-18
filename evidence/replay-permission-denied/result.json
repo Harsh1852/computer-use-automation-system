@@ -1,0 +1,15 @@
+{
+  "at_step": "s6",
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "code": "PERMISSION_DENIED",
+  "drift": [],
+  "duration_ms": 3328,
+  "evidence_ref": "evidence/replay-permission-denied",
+  "message": "The signed-on operator is not entitled to view this member's record.",
+  "recoveries": [],
+  "run_id": "run-818f395f35",
+  "status": "business_outcome",
+  "steps_executed": 5,
+  "terminal": true
+}

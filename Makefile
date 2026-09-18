@@ -51,3 +51,10 @@ inject:
 
 faults:
 	curl -s $(APP_URL)/admin/status
+
+ARTIFACT ?= lookup_member_balance
+PARAMS ?= {"member_id":"10001"}
+replay:
+	docker compose run --rm cua python -m cua.cli replay \
+	  --artifact $(ARTIFACT) --params '$(PARAMS)' \
+	  $(if $(EVIDENCE),--evidence $(EVIDENCE),) $(if $(TRACE),--trace,)

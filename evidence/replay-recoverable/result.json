@@ -1,0 +1,25 @@
+{
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 10145,
+  "escalations": [],
+  "evidence_ref": "evidence/replay-recoverable",
+  "outputs": {
+    "savings_balance": "<redacted>"
+  },
+  "recoveries": [
+    {
+      "action": "extended_wait",
+      "at_step": "s4",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 6594,
+      "note": "step took 6594ms against a recorded p50 of 250ms (threshold 1000ms)",
+      "rule_id": null
+    }
+  ],
+  "run_id": "run-e0b1196997",
+  "status": "success",
+  "steps_executed": 7
+}
