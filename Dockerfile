@@ -25,6 +25,43 @@ COPY apps/ /srv/apps/
 EXPOSE 5000
 CMD ["python", "-m", "apps.corebank.app"]
 
+# ---------------------------------------------------------------- cua ------
+# The automation runtime. Headed Chromium on a virtual display, because the
+# escalation path has to be able to hand this exact session to a person.
+FROM mcr.microsoft.com/playwright/python:v1.55.0-noble AS cua
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends xvfb x11-utils \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_SYSTEM_PYTHON=1 \
+    PYTHONPATH=/work/src \
+    DISPLAY=:99 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+WORKDIR /work
+
+# The base image ships the browser builds under /ms-playwright but not the
+# Python package. Pin it to the image tag so the driver and the browser
+# revisions agree.
+RUN uv pip install --system --no-cache \
+      "playwright==1.55.0" \
+      "pydantic>=2.7" "structlog>=24.1" "pyyaml>=6.0" \
+      "openai>=1.40" "httpx>=0.27" "python-dotenv>=1.0" \
+      "pytest>=8" "pytest-asyncio>=0.23" "jsonschema>=4.22"
+
+COPY docker/cua-entrypoint.sh /usr/local/bin/cua-entrypoint
+RUN chmod +x /usr/local/bin/cua-entrypoint
+
+COPY . /work
+
+ENTRYPOINT ["cua-entrypoint"]
+CMD ["sleep", "infinity"]
+
 # --------------------------------------------------------------- test ------
 # Runs the suite with no host-side Python install. Kept separate from `cua`
 # so unit tests do not need a browser or an X server to run.

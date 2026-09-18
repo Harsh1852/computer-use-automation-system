@@ -6,7 +6,7 @@ any calling agent, so it must not be able to acquire a dependency on any one
 of them.
 """
 
-from .actions import Action, ActionResult, ActionType, Risk
+from .actions import Action, ActionResult, ActionType, ExtractFrom, Risk
 from .artifact import (
     AllOf,
     AnyOf,
@@ -16,7 +16,6 @@ from .artifact import (
     Capability,
     Condition,
     Contract,
-    ExtractFrom,
     HttpOk,
     InputParam,
     NodeAbsent,
@@ -43,7 +42,7 @@ from .artifact import (
     ValueEquals,
     ValueRef,
 )
-from .observation import Banner, Dialog, Observation, Snapshot, UiNode
+from .observation import Banner, Dialog, NameSource, Observation, Snapshot, UiNode
 from .results import (
     BusinessOutcomeResult,
     DriftSignal,
@@ -77,6 +76,7 @@ __all__ = [
     "FailureKind",
     "HttpOk",
     "InputParam",
+    "NameSource",
     "NodeAbsent",
     "NodePresent",
     "Observation",

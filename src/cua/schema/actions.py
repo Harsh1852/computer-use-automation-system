@@ -26,6 +26,19 @@ class ActionType(str, Enum):
     ASSERT = "assert"
 
 
+class ExtractFrom(str, Enum):
+    """Which property of a node a ``read`` pulls.
+
+    Lives with the action vocabulary rather than with the artifact because it
+    describes what the *surface* must fetch. Post-processing of the fetched
+    value (``Transform``) stays in the artifact, where the executor applies it.
+    """
+
+    TEXT = "text"
+    VALUE = "value"
+    URL = "url"
+
+
 class Risk(str, Enum):
     """How much damage getting this wrong does.
 
@@ -64,6 +77,9 @@ class Action(BaseModel):
 
     option: str | None = None
     """Option label or value for ``select``."""
+
+    extract: ExtractFrom | None = None
+    """Which property a ``read`` should pull off the resolved node."""
 
     sensitive: bool = False
     """Set when ``text`` came from a secret or a PII-tagged parameter."""

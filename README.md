@@ -6,8 +6,8 @@ is recorded as a typed, versioned **capability artifact**. That artifact is then
 the executor cannot safely proceed it escalates to a human who takes control of the *same live
 browser session*, fixes the situation, and hands control back so the run resumes.
 
-> **Build status:** Phases 1–2 of 8 complete — the target application and the artifact schema.
-> Subsequent phases add the surface abstraction, deterministic replay, the discovery agent,
+> **Build status:** Phases 1–3 of 8 complete — the target application, the artifact schema, and
+> the surface abstraction. Subsequent phases add deterministic replay, the discovery agent,
 > escalation, policy, and the write-up.
 
 ---
@@ -120,13 +120,55 @@ match result.status:
     case "failure":           result.kind, result.at_step, result.expected, result.observed
 ```
 
+---
+
+## The surface seam
+
+`src/cua/surface/` is the only package permitted to know what a browser is. Everything above it —
+resolver, detectors, executor, the discovery agent's prompt — speaks `Observation`, `Action` and
+`Handle`. That boundary is checked, not just intended:
+
+```bash
+make boundary        # grep -r playwright src/cua | grep -v surface/  must be empty
+make test-schema     # the schema and seam tests pass in an image with no browser installed
+```
+
+A new surface implements six things: `observe`, `find`, `act`, `snapshot`, `pause`, `resume`. It
+does **not** implement the locator ladder — `walk_ladder` is shared policy, because "try the
+primary, then fallbacks in order, and treat an ambiguous match as a miss" is a rule about
+robustness, not about browsers. A `DesktopSurface` supplies perception and actuation; determinism
+is inherited.
+
+**Only `css` and `xpath` touch the driver.** The four portable rungs (`a11y_role_name`,
+`label_text`, `near_text`, `exact_text`) resolve by filtering `UiNode`s in Python. A surface with
+no DOM simply offers no brittle rungs and the rest works unchanged.
+
+```bash
+make observe                         # base tenant
+make observe TENANT=/t/summit-cu     # same product, different frame names and labels
+```
+
+```
+ REF  FRAME          ROLE           NAME                 VALUE   SRC
+   3  navFrame       link           MEMBER SEARCH                text
+   9  contentFrame   cell           MEMBER NUMBER                text
+  10  contentFrame   textbox                                     none      <- no accessible name
+  11  contentFrame   button         SEARCH                       value
+```
+
+Node 10 is the whole problem in one line: the member-number field has **no accessible name**,
+because its label is plain `<td>` text. `a11y_role_name` finds nothing and the ladder falls
+through to a `near_text` anchor on node 9. The same page under `/t/summit-cu/` reports frames
+`sidebar`/`main` and an `ACCOUNT NUMBER` anchor — the per-tenant drift an overlay has to absorb.
+
 ### Running the tests
 
 ```bash
 make test
 ```
 
-No host-side Python install: the suite runs in its own image.
+No host-side Python install: unit tests, the seam tests and the live browser integration tests all
+run in containers.
 
 ---
 

@@ -20,6 +20,8 @@ import json
 from datetime import datetime
 from enum import Enum
 
+from enum import Enum
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .artifact import SurfaceKind
@@ -27,11 +29,30 @@ from .artifact import SurfaceKind
 __all__ = [
     "Banner",
     "Dialog",
+    "NameSource",
     "Observation",
     "Snapshot",
     "SurfaceKind",
     "UiNode",
 ]
+
+
+class NameSource(str, Enum):
+    """How a node's accessible name was derived.
+
+    Lets ``label_text`` be a genuinely distinct rung of the locator ladder
+    rather than a duplicate of ``a11y_role_name``: a name that came from a
+    real label element survives different drift than one scraped from the
+    node's own text. Every one of these has a UIA/AX analogue.
+    """
+
+    ARIA = "aria"
+    LABEL = "label"
+    VALUE = "value"
+    ALT = "alt"
+    TITLE = "title"
+    TEXT = "text"
+    NONE = "none"
 
 
 class UiNode(BaseModel):
@@ -47,13 +68,27 @@ class UiNode(BaseModel):
     role: str
     name: str | None = None
     value: str | None = None
+    name_source: NameSource = NameSource.NONE
 
     enabled: bool = True
     focused: bool = False
     visible: bool = True
 
     bbox: tuple[int, int, int, int] | None = None
+    """``(x, y, width, height)`` in the coordinate space of this node's frame."""
+
     frame_path: list[str] = []
+
+    order: int = 0
+    """Position in the surface's traversal: document order on the web, tree
+    order under UIA or AX. Gives ``near_text`` a notion of "what comes next"
+    without anything above this layer knowing about a DOM."""
+
+    container_ref: int | None = None
+    """Nearest emitted grouping ancestor — a table row on the web, a pane or
+    group on a desktop surface. This is what scopes proximity for
+    ``near_text``, so the locator ladder stays implementable off the
+    observation alone."""
 
     a11y_visible: bool = True
     """False when this node came from the DOM fallback because the
@@ -120,6 +155,7 @@ class Observation(BaseModel):
             "nodes": [
                 [n.role, n.name, n.value, n.enabled, n.frame_path] for n in self.nodes
             ],
+            "status": self.http_status,
             "banners": sorted(b.text for b in self.banners),
             "dialogs": sorted((d.title or "") + d.text for d in self.dialogs),
         }

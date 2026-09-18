@@ -15,6 +15,30 @@ services:
       timeout: 3s
       retries: 10
 
+  cua:
+    build:
+      context: .
+      target: cua
+    container_name: cua-runtime
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      APP_URL: http://app:5000
+      APP_USER: ${APP_USER:-svc_agent}
+      APP_PASSWORD: ${APP_PASSWORD:-demo1234}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      DISPLAY_NUM: "99"
+      SCREEN_GEOMETRY: 1280x900x24
+    volumes:
+      - ./src:/work/src:ro
+      - ./tests:/work/tests:ro
+      - ./artifacts:/work/artifacts
+      - ./evidence:/work/evidence
+    init: true
+    command: ["sleep", "infinity"]
+
   # `make test`. Behind a profile so `docker compose up` never starts it.
   # Sources are bind-mounted so the suite reruns without a rebuild.
   tests:

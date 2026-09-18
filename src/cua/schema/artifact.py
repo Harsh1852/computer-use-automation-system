@@ -44,7 +44,7 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .actions import ActionType, Risk
+from .actions import ActionType, ExtractFrom, Risk
 
 __all__ = [
     "Approval",
@@ -416,12 +416,6 @@ class Timing(Schema):
                 f"{self.observed_ms_p50}ms; use at least {floor}ms"
             )
         return self
-
-
-class ExtractFrom(str, Enum):
-    TEXT = "text"
-    VALUE = "value"
-    URL = "url"
 
 
 class Transform(str, Enum):
