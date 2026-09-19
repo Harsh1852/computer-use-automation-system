@@ -71,6 +71,11 @@ class Transcript:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._file = self.path.open("w", encoding="utf-8")
+        self._digest = ""
+
+    @property
+    def closed(self) -> bool:
+        return self._file.closed
 
     def write(self, kind: str, payload: Any) -> None:
         self._file.write(
@@ -79,10 +84,12 @@ class Transcript:
         self._file.flush()
 
     def close(self) -> str:
-        self._file.close()
         import hashlib
 
-        return hashlib.sha256(self.path.read_bytes()).hexdigest()
+        if not self._file.closed:
+            self._file.close()
+            self._digest = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        return self._digest
 
 
 class DiscoveryAgent:
@@ -129,6 +136,16 @@ class DiscoveryAgent:
     async def run(self) -> DiscoveryResult:
         transcript = Transcript(self.run_dir / "transcript.jsonl")
         started = time.perf_counter()
+
+        try:
+            return await self._loop(transcript, started)
+        finally:
+            # The transcript is the evidence. It gets closed and hashed
+            # whatever happened, including a model that never answered.
+            if not transcript.closed:
+                transcript.close()
+
+    async def _loop(self, transcript: "Transcript", started: float) -> DiscoveryResult:
         calls = 0
         digests: list[str] = []
         status, reason, proposal = "exhausted", "step budget exhausted", {}
@@ -152,7 +169,18 @@ class DiscoveryAgent:
                 status, reason = "exhausted", f"wall clock of {self.wall_clock_s}s reached"
                 break
 
-            choice = await self._ask(messages, transcript)
+            try:
+                choice = await self._ask(messages, transcript)
+            except Exception as exc:
+                # The model being unavailable is an operational condition, not
+                # a bug in the loop. Report it as one, keep the partial
+                # transcript, and let the caller see why nothing was recorded.
+                detail = f"{type(exc).__name__}: {str(exc).splitlines()[0]}"
+                transcript.write("model_error", detail)
+                self.log.event("agent.model_error", detail=detail)
+                status, reason = "error", detail
+                break
+
             if choice is None:
                 status, reason = "exhausted", "model returned no tool call"
                 break
