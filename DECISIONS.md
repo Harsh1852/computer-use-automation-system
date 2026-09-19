@@ -256,3 +256,47 @@ Deviations from the original sketch, each one a deliberate tightening:
   It exercises every line of the recorder without spending a token, and ends
   by replaying the emitted artifact against a *different member* than the one
   recorded - which is what proves the parameterisation rather than assuming it.
+
+### Phase 5 - found by the genuine model runs
+
+Four defects the scripted test could not have caught, because they only
+appear when a real model chooses its own path:
+
+- **Supervised recording is an explicit, off-by-default mode.** Told not to
+  act irreversibly, the model walked the whole sub-account form and then
+  called `stuck` at the review screen - correct, and exactly the
+  RISKY_APPROVAL case. But a capability whose entire purpose *is* the
+  confirmation has to be recorded once. `--supervised` swaps that one prompt
+  rule and nothing else; unattended discovery still refuses. Once the policy
+  gate exists it enforces the same asymmetry rather than trusting the prompt.
+- **A `read` must not count toward the no-progress stop.** The supervised run
+  clicked CONFIRM, then read two values off the confirmation screen, and was
+  killed as "3 consecutive identical observations". A read deliberately
+  leaves the page unchanged; only navigate/click/type/select claim to change
+  it, so only those count.
+- **Parameters bind on an exact match or not at all.** The binder used to
+  fall back to "take the next unclaimed typed value", which bound
+  `account_type` to the nickname field and `nickname` to the deposit field.
+  Every replay would have typed the wrong value into the wrong box. A dropped
+  parameter is a visible gap; a mis-bound one is a landmine. Selects are now
+  bindable too, which is what let all five inputs bind correctly.
+- **A select records what the control holds, not the label used to pick it.**
+  The dropdown shows `10001-C01 (CHECKING)` while its value is `10001-C01`.
+  Recording the label made the `value_equals` postcondition compare two
+  different things, so the step failed its own checkpoint immediately after
+  succeeding.
+
+And one in replay, surfaced by the same run:
+
+- **An action that will not run is not automatically a broken surface.**
+  A dropdown option that does not exist times out against a perfectly healthy
+  page. `SURFACE_ERROR` now means the browser or transport is gone; a timeout
+  is `TIMEOUT`, and anything else that fails while the surface still responds
+  is `UNRECOVERABLE_CONDITION`. Telling an operator the surface crashed sends
+  them to debug the wrong thing.
+
+Known limitation, left deliberately: the `open_subaccount` recording assumes
+the funding account exists for the member being serviced. Replaying it for a
+member with no checking account fails at that step. That is a real property
+of the flow rather than a bug, it is why the artifact is emitted as `draft`,
+and it is the sort of latent assumption human review exists to catch.

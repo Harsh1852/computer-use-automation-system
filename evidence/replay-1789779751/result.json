@@ -1,0 +1,15 @@
+{
+  "at_step": "s6",
+  "capability_id": "lookup_member_balance_llm",
+  "capability_version": "1.0.0",
+  "code": "MEMBER_NOT_FOUND",
+  "drift": [],
+  "duration_ms": 3513,
+  "evidence_ref": "evidence/replay-1789779751",
+  "message": "No member exists with that number at this institution.",
+  "recoveries": [],
+  "run_id": "run-1d8d4af5ec",
+  "status": "business_outcome",
+  "steps_executed": 5,
+  "terminal": true
+}

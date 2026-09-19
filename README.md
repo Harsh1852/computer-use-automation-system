@@ -229,10 +229,26 @@ URLs they reappear in*, and classifies risk. The model's proposed contract is th
 against what was really typed and read.
 
 Stopping conditions: 25 tool calls, a 5-minute wall clock, three consecutive identical
-observation digests, or an explicit `stuck`.
+observation digests *from mutating actions*, or an explicit `stuck`.
 
-Evidence lands in `evidence/discovery-<id>/`: `transcript.jsonl`, `steps.jsonl`, `screenshots/`
-and the emitted `artifact.json`.
+### The real runs
+
+Two genuine `gpt-4.1` runs are recorded in `evidence/`, each with `transcript.jsonl`,
+`steps.jsonl`, `screenshots/` and the emitted `artifact.json`.
+
+| Run | Result |
+|---|---|
+| `lookup_member_balance` | 8 tool calls, 13s, **7 steps**. Replays: `10001 → 1234.56`, `10002 → 88.00`, `99999 → MEMBER_NOT_FOUND` |
+| `open_subaccount` | 15 tool calls, 51s, **14 steps, 1 irreversible**. Recorded on 10001/SAVINGS/VACATION/50.00; replayed as 10002/MONEY MARKET/RAINY DAY/500.00 → `10002-M91` |
+
+Told not to act irreversibly, the model walked the entire sub-account form and then **stopped at
+the review screen and called `stuck`** — the safety rule holding on its own. Recording that
+capability therefore needs `--supervised`, an explicit off-by-default mode that swaps exactly one
+prompt rule. Unattended discovery still refuses, and once the policy gate exists it enforces the
+same asymmetry rather than trusting a prompt.
+
+Both artifacts are emitted as `draft`, reference credentials only as `secret_ref`, and contain no
+seeded password anywhere — there is a test that greps for it.
 
 ### Running the tests
 

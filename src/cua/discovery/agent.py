@@ -35,9 +35,9 @@ from typing import Any
 
 from ..schema import Observation
 from ..surface.base import Surface
-from .prompts import SYSTEM_PROMPT, goal_prompt, render_for_model
+from .prompts import goal_prompt, render_for_model, system_prompt
 from .recorder import Recorder
-from .tools import ACTING_TOOLS, TERMINAL_TOOLS, TOOL_SPECS, ToolBox
+from .tools import ACTING_TOOLS, MUTATING_TOOLS, TERMINAL_TOOLS, TOOL_SPECS, ToolBox
 
 MAX_STEPS = 25
 WALL_CLOCK_S = 300
@@ -107,6 +107,7 @@ class DiscoveryAgent:
         secrets: dict[str, str] | None = None,
         max_steps: int = MAX_STEPS,
         wall_clock_s: int = WALL_CLOCK_S,
+        supervised: bool = False,
     ) -> None:
         self.surface = surface
         self.recorder = recorder
@@ -116,6 +117,8 @@ class DiscoveryAgent:
         self.log = log
         self.max_steps = max_steps
         self.wall_clock_s = wall_clock_s
+        self.supervised = supervised
+        self.system_prompt = system_prompt(supervised)
 
         self.model = model or os.environ.get("OPENAI_MODEL")
         if not self.model:
@@ -152,13 +155,14 @@ class DiscoveryAgent:
 
         observation = await self.tools.observe()
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": self.system_prompt},
             {
                 "role": "user",
                 "content": await self._first_turn_content(observation),
             },
         ]
-        transcript.write("system", SYSTEM_PROMPT)
+        transcript.write("system", self.system_prompt)
+        transcript.write("mode", {"supervised": self.supervised})
         transcript.write("goal", {"goal": self.goal, "entry_url": self.entry_url})
 
         while True:
@@ -224,7 +228,7 @@ class DiscoveryAgent:
                     {"role": "tool", "tool_call_id": call.id, "content": outcome.text}
                 )
 
-                if outcome.observation_after is not None:
+                if outcome.observation_after is not None and name in MUTATING_TOOLS:
                     digests.append(outcome.observation_after.digest())
                     if self._stalled(digests):
                         status, reason = (

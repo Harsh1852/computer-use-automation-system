@@ -180,7 +180,15 @@ class Recorder:
             )
             return
 
-        value = self._value_ref(tool, args, typed_text, secret_ref)
+        value = self._value_ref(tool, args, typed_text, secret_ref, node, after)
+        # Bind parameters from what the control actually holds, and only for
+        # the two verbs that carry caller-supplied data. A navigate URL is a
+        # literal, not a parameter, and a secret must never become one.
+        bindable = (
+            value.literal
+            if tool in ("type", "select") and value is not None and value.literal is not None
+            else None
+        )
         output = (
             OutputBinding(
                 name=args["output_name"],
@@ -211,7 +219,7 @@ class Recorder:
                     ),
                 ),
                 node_name=node.name if node else None,
-                typed_text=typed_text,
+                typed_text=bindable,
                 output_name=args.get("output_name"),
                 ladder_counts={
                     c.strategy.value: (c.matches_at_record or 0)
@@ -393,7 +401,9 @@ class Recorder:
 
     # ------------------------------------------------------- inferred parts
 
-    def _value_ref(self, tool, args, typed_text, secret_ref) -> ValueRef | None:
+    def _value_ref(
+        self, tool, args, typed_text, secret_ref, node=None, after=None
+    ) -> ValueRef | None:
         if secret_ref is not None:
             return ValueRef(secret_ref=secret_ref)
         if tool == "navigate":
@@ -401,7 +411,17 @@ class Recorder:
         if tool == "type":
             return ValueRef(literal=typed_text or "")
         if tool == "select":
-            return ValueRef(literal=str(args.get("option", "")))
+            # Record what the control now *holds*, not the label used to pick
+            # it. A legacy dropdown routinely shows "10001-C01 (CHECKING)"
+            # while its value is "10001-C01"; storing the label makes the
+            # value_equals postcondition compare two different things and the
+            # step fails its own checkpoint after succeeding.
+            chosen = str(args.get("option", ""))
+            if node is not None and after is not None:
+                settled = after.by_ref(node.ref)
+                if settled is not None and settled.role == node.role and settled.value:
+                    return ValueRef(literal=settled.value)
+            return ValueRef(literal=chosen)
         return None
 
     def _postcondition(
@@ -652,12 +672,20 @@ class Recorder:
                 self.skipped.append(f"input {name!r}: not a usable parameter name")
                 continue
             example = str(item.get("example") or "")
-            value = example if example in unclaimed else (unclaimed[0] if unclaimed else None)
-            if value is None:
-                self.skipped.append(f"input {name!r}: nothing in the run typed it")
+            # Exact match only. An earlier version fell back to "take the next
+            # unclaimed value", which silently bound `account_type` to the
+            # nickname field and `nickname` to the deposit field — an artifact
+            # that types the wrong value into the wrong box on every
+            # invocation. A dropped parameter is a visible gap; a mis-bound
+            # one is a landmine.
+            if example not in unclaimed:
+                self.skipped.append(
+                    f"input {name!r}: example {example!r} matches no value the run "
+                    "supplied, so it cannot be bound to a field"
+                )
                 continue
-            unclaimed.remove(value)
-            bindings[name] = (value, item)
+            unclaimed.remove(example)
+            bindings[name] = (example, item)
         return bindings
 
     def _parameterise(

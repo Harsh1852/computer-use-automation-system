@@ -1,0 +1,1026 @@
+{
+  "schema_version": "1.0",
+  "id": "open_subaccount",
+  "version": "1.0.0",
+  "title": "Opened a new SAVINGS sub-account nicknamed VACATION for member 10001 with an initial deposit of $50.00 funded from their",
+  "description": "Opened a new SAVINGS sub-account nicknamed VACATION for member 10001 with an initial deposit of $50.00 funded from their existing checking account, and confirmed the new account number.",
+  "approval": {
+    "state": "draft",
+    "replays": 0,
+    "failures": 0,
+    "last_verified": null,
+    "approved_by": null,
+    "notes": null
+  },
+  "target": {
+    "vendor_product": "MERIDIAN CoreBank",
+    "product_version": "7.4.11",
+    "tenant_id": "meridian",
+    "variant_of": null,
+    "entry_point": "http://app:5000/login",
+    "surface_kind": "legacy_web"
+  },
+  "contract": {
+    "inputs": [
+      {
+        "name": "member_number",
+        "type": "string",
+        "pattern": "^[0-9]{5}$",
+        "required": true,
+        "sensitivity": "internal",
+        "description": "The 5-digit member number to open the sub-account for.",
+        "example": "10001"
+      },
+      {
+        "name": "sub_account_type",
+        "type": "string",
+        "pattern": null,
+        "required": true,
+        "sensitivity": "internal",
+        "description": "The type of sub-account to open (e.g., SAVINGS).",
+        "example": "SAVINGS"
+      },
+      {
+        "name": "nickname",
+        "type": "string",
+        "pattern": null,
+        "required": true,
+        "sensitivity": "internal",
+        "description": "The nickname for the new sub-account.",
+        "example": "VACATION"
+      },
+      {
+        "name": "initial_deposit",
+        "type": "string",
+        "pattern": null,
+        "required": true,
+        "sensitivity": "internal",
+        "description": "The amount of the initial deposit.",
+        "example": "50.00"
+      },
+      {
+        "name": "funding_source_account",
+        "type": "string",
+        "pattern": null,
+        "required": true,
+        "sensitivity": "internal",
+        "description": "The account number from which the opening deposit will be funded.",
+        "example": "10001-C01"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "new_account_number",
+        "type": "string",
+        "from_step": "s14",
+        "sensitivity": "pii",
+        "description": "The newly-opened account number for the sub-account."
+      }
+    ]
+  },
+  "outcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member exists with that number at this institution.",
+      "detect": {
+        "kind": "text_present",
+        "text": "NO MATCHING MEMBER RECORD FOUND",
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
+      },
+      "terminal": true
+    },
+    {
+      "code": "PERMISSION_DENIED",
+      "description": "The signed-on operator is not entitled to view this record.",
+      "detect": {
+        "kind": "text_present",
+        "text": "YOU ARE NOT AUTHORIZED TO VIEW THIS RECORD",
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
+      },
+      "terminal": true
+    },
+    {
+      "code": "VALIDATION_REJECTED",
+      "description": "The core rejected the submitted values.",
+      "detect": {
+        "kind": "text_present",
+        "text": "INITIAL DEPOSIT MUST BE AT LEAST $25.00",
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
+      },
+      "terminal": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "s1",
+      "intent": "Navigate to http://app:5000/login",
+      "action": "navigate",
+      "frame_path": [],
+      "target": null,
+      "value": {
+        "param": null,
+        "literal": "http://app:5000/login",
+        "secret_ref": null,
+        "sensitivity": "public"
+      },
+      "output": null,
+      "postcondition": {
+        "kind": "url_matches",
+        "pattern": "*/login",
+        "frame_path": []
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 49,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s2",
+      "intent": "Type the APP_USER credential into the textbox",
+      "action": "type",
+      "frame_path": [],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "textbox",
+          "name": null,
+          "anchor": "USER ID",
+          "index": 0,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_txtUserId\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "bbox": [
+            97,
+            70,
+            173,
+            16
+          ],
+          "a11y_snippet": "row \"USER ID\" -> textbox"
+        }
+      },
+      "value": {
+        "param": null,
+        "literal": null,
+        "secret_ref": "APP_USER",
+        "sensitivity": "secret"
+      },
+      "output": null,
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": {
+          "param": null,
+          "literal": null,
+          "secret_ref": "APP_USER",
+          "sensitivity": "secret"
+        }
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 24,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s3",
+      "intent": "Type the APP_PASSWORD credential into the textbox",
+      "action": "type",
+      "frame_path": [],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "textbox",
+          "name": null,
+          "anchor": "PASSWORD",
+          "index": 0,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_txtPassword\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "bbox": [
+            97,
+            92,
+            173,
+            16
+          ],
+          "a11y_snippet": "row \"PASSWORD\" -> textbox"
+        }
+      },
+      "value": {
+        "param": null,
+        "literal": null,
+        "secret_ref": "APP_PASSWORD",
+        "sensitivity": "secret"
+      },
+      "output": null,
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": {
+          "param": null,
+          "literal": null,
+          "secret_ref": "APP_PASSWORD",
+          "sensitivity": "secret"
+        }
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 20,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s4",
+      "intent": "Click button 'SIGN ON'",
+      "action": "click",
+      "frame_path": [],
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "SIGN ON",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "exact_text",
+            "role": "button",
+            "name": "SIGN ON",
+            "anchor": null,
+            "index": null,
+            "value": null,
+            "brittle": false,
+            "matches_at_record": 1
+          },
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_btnSignOn\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "bbox": [
+            97,
+            114,
+            66,
+            18
+          ],
+          "a11y_snippet": "button \"SIGN ON\" (name_source=value)"
+        }
+      },
+      "value": null,
+      "output": null,
+      "postcondition": {
+        "kind": "url_matches",
+        "pattern": "*/app",
+        "frame_path": []
+      },
+      "risk": "state_changing",
+      "timing": {
+        "observed_ms_p50": 107,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s5",
+      "intent": "Type the supplied value into the textbox",
+      "action": "type",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "textbox",
+          "name": null,
+          "anchor": "MEMBER NUMBER",
+          "index": 0,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_ContentPlaceHolder1_txtMbrNo\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "bbox": [
+            161,
+            35,
+            109,
+            16
+          ],
+          "a11y_snippet": "row \"MEMBER NUMBER\" -> textbox"
+        }
+      },
+      "value": {
+        "param": "member_number",
+        "literal": null,
+        "secret_ref": null,
+        "sensitivity": "public"
+      },
+      "output": null,
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": {
+          "param": "member_number",
+          "literal": null,
+          "secret_ref": null,
+          "sensitivity": "public"
+        }
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 18,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s6",
+      "intent": "Click button 'SEARCH'",
+      "action": "click",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "SEARCH",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "exact_text",
+            "role": "button",
+            "name": "SEARCH",
+            "anchor": null,
+            "index": null,
+            "value": null,
+            "brittle": false,
+            "matches_at_record": 1
+          },
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_ContentPlaceHolder1_btnSearch\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "bbox": [
+            161,
+            57,
+            66,
+            18
+          ],
+          "a11y_snippet": "button \"SEARCH\" (name_source=value)"
+        }
+      },
+      "value": null,
+      "output": null,
+      "postcondition": {
+        "kind": "url_matches",
+        "pattern": "*/members/detail?mbr={member_number}",
+        "frame_path": [
+          "contentFrame"
+        ]
+      },
+      "risk": "state_changing",
+      "timing": {
+        "observed_ms_p50": 94,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s7",
+      "intent": "Click button 'OPEN NEW SUB-ACCOUNT'",
+      "action": "click",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "OPEN NEW SUB-ACCOUNT",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "exact_text",
+            "role": "button",
+            "name": "OPEN NEW SUB-ACCOUNT",
+            "anchor": null,
+            "index": null,
+            "value": null,
+            "brittle": false,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "bbox": [
+            10,
+            157,
+            164,
+            18
+          ],
+          "a11y_snippet": "button \"OPEN NEW SUB-ACCOUNT\" (name_source=value)"
+        }
+      },
+      "value": null,
+      "output": null,
+      "postcondition": {
+        "kind": "url_matches",
+        "pattern": "*/members/subaccount/new?mbr={member_number}",
+        "frame_path": [
+          "contentFrame"
+        ]
+      },
+      "risk": "state_changing",
+      "timing": {
+        "observed_ms_p50": 77,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s8",
+      "intent": "Select 'SAVINGS' in the combobox",
+      "action": "select",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "combobox",
+          "name": null,
+          "anchor": "ACCOUNT TYPE",
+          "index": 0,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_ContentPlaceHolder1_ddlAcctType\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "bbox": [
+            137,
+            56,
+            112,
+            16
+          ],
+          "a11y_snippet": "row \"ACCOUNT TYPE -- SELECT -- SAVINGS CHECKING MONEY MARKET CERTIFICATE\" -> combobox"
+        }
+      },
+      "value": {
+        "param": "sub_account_type",
+        "literal": null,
+        "secret_ref": null,
+        "sensitivity": "public"
+      },
+      "output": null,
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": {
+          "param": "sub_account_type",
+          "literal": null,
+          "secret_ref": null,
+          "sensitivity": "public"
+        }
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 19,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s9",
+      "intent": "Type the supplied value into the textbox",
+      "action": "type",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "textbox",
+          "name": null,
+          "anchor": "NICKNAME",
+          "index": 0,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_ContentPlaceHolder1_txtNickname\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "bbox": [
+            137,
+            78,
+            173,
+            16
+          ],
+          "a11y_snippet": "row \"NICKNAME\" -> textbox"
+        }
+      },
+      "value": {
+        "param": "nickname",
+        "literal": null,
+        "secret_ref": null,
+        "sensitivity": "public"
+      },
+      "output": null,
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": {
+          "param": "nickname",
+          "literal": null,
+          "secret_ref": null,
+          "sensitivity": "public"
+        }
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 14,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s10",
+      "intent": "Type the supplied value into the textbox",
+      "action": "type",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "textbox",
+          "name": null,
+          "anchor": "INITIAL DEPOSIT",
+          "index": 0,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_ContentPlaceHolder1_txtInitDep\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "bbox": [
+            137,
+            100,
+            97,
+            16
+          ],
+          "a11y_snippet": "row \"INITIAL DEPOSIT\" -> textbox"
+        }
+      },
+      "value": {
+        "param": "initial_deposit",
+        "literal": null,
+        "secret_ref": null,
+        "sensitivity": "public"
+      },
+      "output": null,
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": {
+          "param": "initial_deposit",
+          "literal": null,
+          "secret_ref": null,
+          "sensitivity": "public"
+        }
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 13,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s11",
+      "intent": "Select '10001-C01 (CHECKING)' in the combobox",
+      "action": "select",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "combobox",
+          "name": null,
+          "anchor": "FUNDING SOURCE",
+          "index": 0,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_ContentPlaceHolder1_ddlFundSrc\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "bbox": [
+            137,
+            122,
+            145,
+            16
+          ],
+          "a11y_snippet": "row \"FUNDING SOURCE -- SELECT -- 10001-S01 (SAVINGS) 10001-C01 (CHECKING)\" -> combobox"
+        }
+      },
+      "value": {
+        "param": "funding_source_account",
+        "literal": null,
+        "secret_ref": null,
+        "sensitivity": "public"
+      },
+      "output": null,
+      "postcondition": {
+        "kind": "value_equals",
+        "expected": {
+          "param": "funding_source_account",
+          "literal": null,
+          "secret_ref": null,
+          "sensitivity": "public"
+        }
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 12,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s12",
+      "intent": "Click button 'CONTINUE'",
+      "action": "click",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "CONTINUE",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "exact_text",
+            "role": "button",
+            "name": "CONTINUE",
+            "anchor": null,
+            "index": null,
+            "value": null,
+            "brittle": false,
+            "matches_at_record": 1
+          },
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_ContentPlaceHolder1_btnContinue\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "bbox": [
+            137,
+            144,
+            77,
+            18
+          ],
+          "a11y_snippet": "button \"CONTINUE\" (name_source=value)"
+        }
+      },
+      "value": null,
+      "output": null,
+      "postcondition": {
+        "kind": "url_matches",
+        "pattern": "*/members/subaccount/review",
+        "frame_path": [
+          "contentFrame"
+        ]
+      },
+      "risk": "state_changing",
+      "timing": {
+        "observed_ms_p50": 39,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s13",
+      "intent": "Click button 'CONFIRM'",
+      "action": "click",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "CONFIRM",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [
+          {
+            "strategy": "exact_text",
+            "role": "button",
+            "name": "CONFIRM",
+            "anchor": null,
+            "index": null,
+            "value": null,
+            "brittle": false,
+            "matches_at_record": 1
+          },
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "[id=\"ctl00_ContentPlaceHolder1_btnConfirm\"]",
+            "brittle": true,
+            "matches_at_record": 1
+          }
+        ],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "bbox": [
+            10,
+            174,
+            71,
+            18
+          ],
+          "a11y_snippet": "button \"CONFIRM\" (name_source=value)"
+        }
+      },
+      "value": null,
+      "output": null,
+      "postcondition": {
+        "kind": "url_matches",
+        "pattern": "*/members/subaccount/confirm",
+        "frame_path": [
+          "contentFrame"
+        ]
+      },
+      "risk": "irreversible",
+      "timing": {
+        "observed_ms_p50": 52,
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "s14",
+      "intent": "Read new_account_number from the cell beside 'NEW ACCOUNT NUMBER'",
+      "action": "read",
+      "frame_path": [
+        "contentFrame"
+      ],
+      "target": {
+        "primary": {
+          "strategy": "near_text",
+          "role": "cell",
+          "name": null,
+          "anchor": "NEW ACCOUNT NUMBER",
+          "index": 1,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [],
+        "recorded": {
+          "winning_strategy": "near_text",
+          "candidates_seen": 1,
+          "bbox": [
+            173,
+            47,
+            150,
+            21
+          ],
+          "a11y_snippet": "row anchored on 'NEW ACCOUNT NUMBER' -> cell"
+        }
+      },
+      "value": null,
+      "output": {
+        "name": "new_account_number",
+        "extract": "text",
+        "pattern": null,
+        "transform": "strip"
+      },
+      "postcondition": {
+        "kind": "text_present",
+        "text": "NEW ACCOUNT NUMBER",
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 31,
+        "timeout_ms": 5000
+      }
+    }
+  ],
+  "recoveries": [
+    {
+      "id": "dismiss_maintenance_notice",
+      "when": {
+        "kind": "text_present",
+        "text": "SYSTEM MAINTENANCE NOTICE",
+        "frame_path": [],
+        "case_sensitive": false
+      },
+      "do": "dismiss",
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "DISMISS",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "bbox": null,
+          "a11y_snippet": null
+        }
+      },
+      "max_attempts": 1,
+      "description": "The console interposes a maintenance banner at unpredictable times. Known, harmless, dismissable without changing state."
+    }
+  ],
+  "success_condition": {
+    "kind": "all_of",
+    "conditions": [
+      {
+        "kind": "url_matches",
+        "pattern": "*/members/subaccount/confirm",
+        "frame_path": [
+          "contentFrame"
+        ]
+      },
+      {
+        "kind": "text_present",
+        "text": "NEW ACCOUNT NUMBER",
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
+      }
+    ]
+  },
+  "provenance": {
+    "model": "gpt-4.1",
+    "run_id": "discovery-open_subaccount",
+    "transcript_sha256": "9cd7c6568e9b797f82535039ecedd83f9bd4e4b340653087954fdf29cd140346",
+    "recorded_at": "2026-09-19T01:14:36.779103Z",
+    "goal": "For member 10001, open a new SAVINGS sub-account nicknamed VACATION with an initial deposit of 50.00, funded from their existing checking account, and reach the confirmation screen.",
+    "recorder_version": "1.0"
+  }
+}

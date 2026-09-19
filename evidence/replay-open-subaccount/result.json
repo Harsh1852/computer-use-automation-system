@@ -1,0 +1,34 @@
+{
+  "capability_id": "open_subaccount",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 10803,
+  "escalations": [],
+  "evidence_ref": "evidence/replay-open-subaccount",
+  "outputs": {
+    "new_account_number": "<redacted>"
+  },
+  "recoveries": [
+    {
+      "action": "extended_wait",
+      "at_step": "s8",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1038,
+      "note": "step took 1038ms against a recorded p50 of 19ms (threshold 1000ms)",
+      "rule_id": null
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s9",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1007,
+      "note": "step took 1007ms against a recorded p50 of 14ms (threshold 1000ms)",
+      "rule_id": null
+    }
+  ],
+  "run_id": "run-ef5a74fc59",
+  "status": "success",
+  "steps_executed": 14
+}

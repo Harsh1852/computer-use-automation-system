@@ -202,6 +202,7 @@ async def _discover(args: argparse.Namespace) -> int:
             entry_url=entry_url,
             run_dir=run_dir,
             log=log,
+            supervised=args.supervised,
         )
         result = await agent.run()
 
@@ -319,6 +320,11 @@ def main(argv: list[str] | None = None) -> int:
     discover.add_argument("--evidence", default=None)
     discover.add_argument("--headless", action="store_true")
     discover.add_argument("--quiet", action="store_true")
+    discover.add_argument(
+        "--supervised",
+        action="store_true",
+        help="a human is watching: allow recording an irreversible final step",
+    )
     discover.add_argument(
         "--write-artifact", action="store_true", help="also install into artifacts/"
     )

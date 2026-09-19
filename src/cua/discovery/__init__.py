@@ -9,7 +9,7 @@ shape from becoming the schema.
 
 from .agent import DiscoveryAgent, DiscoveryResult, Transcript
 from .catalogue import outcomes_for, recoveries_for
-from .prompts import SYSTEM_PROMPT, render_for_model, substitute_secrets
+from .prompts import SYSTEM_PROMPT, render_for_model, substitute_secrets, system_prompt
 from .recorder import Recorder, RecordedStep, RiskRules
 from .tools import TOOL_SPECS, ToolBox, ToolOutcome
 
@@ -20,6 +20,7 @@ __all__ = [
     "Recorder",
     "RiskRules",
     "SYSTEM_PROMPT",
+    "system_prompt",
     "TOOL_SPECS",
     "ToolBox",
     "ToolOutcome",

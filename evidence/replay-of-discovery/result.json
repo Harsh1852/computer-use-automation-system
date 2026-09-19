@@ -1,0 +1,15 @@
+{
+  "capability_id": "lookup_member_balance_llm",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 4407,
+  "escalations": [],
+  "evidence_ref": "evidence/replay-of-discovery",
+  "outputs": {
+    "savings_balance": "<redacted>"
+  },
+  "recoveries": [],
+  "run_id": "run-0b88452fae",
+  "status": "success",
+  "steps_executed": 7
+}

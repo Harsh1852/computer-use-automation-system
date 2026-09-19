@@ -45,15 +45,43 @@ valid for the observation that produced them.
 values; you will never see them and must never invent them.
 5. Use `read` for every value the caller asked you to retrieve. A value you \
 only looked at is not an output.
-6. Do NOT perform irreversible actions. If a screen says a button will \
-confirm, submit, transfer or delete something, stop and call `stuck` \
-describing what needs approval.
+6. {irreversible_rule}
 7. When the goal is met, call `done` and declare the capability's contract: \
 which inputs a caller must supply, and which outputs they get back.
 
 Be economical. Every action is recorded into a reusable capability, so take \
 the path an operator would take, not an exploratory one.\
 """
+
+UNATTENDED_RULE = (
+    "Do NOT perform irreversible actions. If a screen says a button will "
+    "confirm, submit, transfer or delete something, stop and call `stuck` "
+    "describing what needs approval."
+)
+
+SUPERVISED_RULE = (
+    "This is a SUPERVISED recording session: a human operator is present and "
+    "has approved recording this flow end to end, including its final "
+    "irreversible confirmation. Complete it so that step is captured. Still "
+    "call `stuck` for anything else that looks unsafe or unexpected."
+)
+
+
+def system_prompt(supervised: bool = False) -> str:
+    """The prompt, with the irreversible-action rule chosen by mode.
+
+    Unattended discovery may never execute an irreversible action: the model
+    is exploratory and fallible, and an account opened by mistake cannot be
+    un-opened. But a capability whose entire purpose *is* the irreversible
+    step has to be recorded once, and that first recording is a supervised
+    activity with a person watching. The mode is explicit and off by default,
+    so the permissive path cannot be reached by accident — and once the policy
+    gate exists, it enforces the same asymmetry rather than trusting this
+    prompt to hold.
+    """
+    return SYSTEM_PROMPT.format(
+        irreversible_rule=SUPERVISED_RULE if supervised else UNATTENDED_RULE
+    )
 
 
 def goal_prompt(goal: str, entry_url: str) -> str:

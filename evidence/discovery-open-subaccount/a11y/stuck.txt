@@ -1,0 +1,31 @@
+url    http://app:5000/app
+title  MERIDIAN CoreBank - SERVICING CONSOLE
+status 200
+nodes  24   dialogs 0   banners 0
+
+ REF  FRAME          ROLE           NAME                                     VALUE          SRC
+-----------------------------------------------------------------------------------------------
+   0  navFrame       row            MERIDIAN CoreBank                                       text
+   1  navFrame       cell           MERIDIAN CoreBank                                       text
+   2  navFrame       row            MEMBER SEARCH                                           text
+   3  navFrame       link           MEMBER SEARCH                                           text
+   4  navFrame       row            SIGN OFF                                                text
+   5  navFrame       link           SIGN OFF                                                text
+   6  contentFrame   row            SUB-ACCOUNT CONFIRMATION                                text
+   7  contentFrame   cell           SUB-ACCOUNT CONFIRMATION                                text
+   8  contentFrame   generic        SUB-ACCOUNT OPENED SUCCESSFULLY                         text
+   9  contentFrame   row            NEW ACCOUNT NUMBER 10001-S91                            text
+  10  contentFrame   cell           NEW ACCOUNT NUMBER                                      text
+  11  contentFrame   cell           10001-S91                                               text
+  12  contentFrame   row            MEMBER NUMBER 10001 TESTER, ALEX Q                      text
+  13  contentFrame   cell           MEMBER NUMBER                                           text
+  14  contentFrame   cell           10001 TESTER, ALEX Q                                    text
+  15  contentFrame   row            ACCOUNT TYPE SAVINGS                                    text
+  16  contentFrame   cell           ACCOUNT TYPE                                            text
+  17  contentFrame   cell           SAVINGS                                                 text
+  18  contentFrame   row            INITIAL DEPOSIT 50.00                                   text
+  19  contentFrame   cell           INITIAL DEPOSIT                                         text
+  20  contentFrame   cell           50.00                                                   text
+  21  contentFrame   button         RETURN TO DETAIL                                        value
+  22  contentFrame   row            MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text
+  23  contentFrame   cell           MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text

@@ -1,0 +1,35 @@
+url    http://app:5000/app
+title  MERIDIAN CoreBank - SERVICING CONSOLE
+status 200
+nodes  28   dialogs 0   banners 0
+
+ REF  FRAME          ROLE           NAME                                     VALUE          SRC
+-----------------------------------------------------------------------------------------------
+   0  navFrame       row            MERIDIAN CoreBank                                       text
+   1  navFrame       cell           MERIDIAN CoreBank                                       text
+   2  navFrame       row            MEMBER SEARCH                                           text
+   3  navFrame       link           MEMBER SEARCH                                           text
+   4  navFrame       row            SIGN OFF                                                text
+   5  navFrame       link           SIGN OFF                                                text
+   6  contentFrame   row            OPEN SUB-ACCOUNT                                        text
+   7  contentFrame   cell           OPEN SUB-ACCOUNT                                        text
+   8  contentFrame   row            MEMBER NUMBER 10001 TESTER, ALEX Q                      text
+   9  contentFrame   cell           MEMBER NUMBER                                           text
+  10  contentFrame   cell           10001 TESTER, ALEX Q                                    text
+  11  contentFrame   row            ACCOUNT TYPE -- SELECT -- SAVINGS CHECKI                text
+  12  contentFrame   cell           ACCOUNT TYPE                                            text
+  13  contentFrame   combobox                                                SAVINGS        none
+  14  contentFrame   row            NICKNAME                                                text
+  15  contentFrame   cell           NICKNAME                                                text
+  16  contentFrame   textbox                                                 HOLIDAY        none
+  17  contentFrame   row            INITIAL DEPOSIT                                         text
+  18  contentFrame   cell           INITIAL DEPOSIT                                         text
+  19  contentFrame   textbox                                                 75.00          none
+  20  contentFrame   row            FUNDING SOURCE -- SELECT -- 10001-S01 (S                text
+  21  contentFrame   cell           FUNDING SOURCE                                          text
+  22  contentFrame   combobox                                                10001-C01      none
+  23  contentFrame   button         CONTINUE                                                value
+  24  contentFrame   row            MINIMUM OPENING DEPOSIT IS $25.00.                      text
+  25  contentFrame   cell           MINIMUM OPENING DEPOSIT IS $25.00.                      text
+  26  contentFrame   row            MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text
+  27  contentFrame   cell           MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text

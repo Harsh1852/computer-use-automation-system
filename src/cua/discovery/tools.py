@@ -171,6 +171,14 @@ TOOL_SPECS: list[dict[str, Any]] = [
 ]
 
 ACTING_TOOLS = {"navigate", "click", "type", "select", "read"}
+
+MUTATING_TOOLS = {"navigate", "click", "type", "select"}
+"""Tools that claim to change the screen.
+
+Only these count toward the no-progress stop. A `read` marks a value for
+extraction and deliberately leaves the page exactly as it was, so a run that
+reads three outputs from one confirmation screen produces three identical
+observations while making perfect progress."""
 TERMINAL_TOOLS = {"done", "stuck"}
 
 
@@ -234,6 +242,10 @@ class ToolBox:
 
         if name == "type":
             text, secret_ref = substitute_secrets(str(text or ""), self.secrets)
+        elif name == "select":
+            # The chosen option is a value the caller supplied as surely as
+            # typed text is, so it has to be bindable as a parameter.
+            text = str(args.get("option") or "")
 
         # Score the locator ladder while the element is still on screen.
         target = await self.recorder.prepare(node, before, reading=name == "read")

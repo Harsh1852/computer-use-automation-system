@@ -311,7 +311,8 @@ class ReplayExecutor:
                     continue
                 await self.evidence.step_capture(self.surface, f"{step.id}-actfail", force=True)
                 return self._fail(
-                    capability, state, FailureKind.SURFACE_ERROR, step.id,
+                    capability, state, await self._classify_action_failure(result),
+                    step.id,
                     f"{step.action.value} to succeed", result.detail or "action failed",
                 )
 
@@ -526,6 +527,23 @@ class ReplayExecutor:
             p50_ms=step.timing.observed_ms_p50,
             threshold_ms=threshold,
         )
+
+    async def _classify_action_failure(self, result) -> FailureKind:
+        """An action that would not run is not automatically a broken surface.
+
+        SURFACE_ERROR means the browser or transport is gone. A dropdown whose
+        option does not exist, or a control that never became actionable, is a
+        timeout against a perfectly healthy page — and telling an operator the
+        surface crashed sends them to debug the wrong thing.
+        """
+        detail = (result.detail or "").lower()
+        if "timeout" in detail:
+            return FailureKind.TIMEOUT
+        try:
+            await self.surface.observe()
+        except Exception:
+            return FailureKind.SURFACE_ERROR
+        return FailureKind.UNRECOVERABLE_CONDITION
 
     async def _backoff(self, attempt, step, state, log, reason: str) -> None:
         delay = RETRY_BACKOFF_S[min(attempt, len(RETRY_BACKOFF_S)) - 1]

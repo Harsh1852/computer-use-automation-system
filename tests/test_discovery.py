@@ -1,15 +1,13 @@
-"""Discovery, with and without a real model.
+"""The recorder, driven by a scripted model against the real application.
 
-The expensive half of this phase is one genuine LLM run, and it lives in
-`test_discovery_llm.py`. What is tested here is everything that must hold
-regardless of which model drove the run: what the model is allowed to see,
-what the recorder writes down, and — the one that matters — that the emitted
-artifact actually replays.
+A fixed sequence of tool calls stands in for the model, so every line of the
+recorder is exercised against the real browser and the real frameset without
+spending a token. That is what makes it safe to assert on the shape of the
+emitted artifact in detail — and the file ends by replaying that artifact
+against a *different member* than the one it was recorded on.
 
-The scripted-model test drives the *real* browser against the *real*
-application with a fixed sequence of tool calls. It exercises every line of
-the recorder without spending a token, which is what makes it safe to assert
-on the shape of the artifact in detail.
+Pure logic with no browser lives in `test_discovery_units.py`; the one
+genuine model run lives in `test_discovery_llm.py`.
 """
 
 from __future__ import annotations
@@ -23,88 +21,20 @@ from typing import Any, Callable
 import pytest
 from pydantic import BaseModel
 
-from cua.discovery import Recorder, render_for_model, substitute_secrets
+from cua.discovery import Recorder
 from cua.discovery.agent import DiscoveryAgent
 from cua.discovery.catalogue import outcomes_for, recoveries_for
 from cua.evidence import RunLog
 from cua.schema import (
     Capability,
-    NameSource,
     Observation,
     Risk,
     Sensitivity,
     SurfaceKind,
     TargetStrategy,
-    UiNode,
 )
 
 APP = os.environ.get("APP_URL", "http://app:5000").rstrip("/")
-
-
-# --------------------------------------------------------- what the model sees
-
-
-def _screen() -> Observation:
-    return Observation(
-        url="http://app:5000/app",
-        title="MEMBER SEARCH",
-        frame_urls={"": "http://app:5000/app"},
-        nodes=[
-            UiNode(
-                ref=8, role="row", name="MEMBER NUMBER", frame_path=["contentFrame"], order=8
-            ),
-            UiNode(
-                ref=9, role="cell", name="MEMBER NUMBER", frame_path=["contentFrame"],
-                order=9, container_ref=8,
-            ),
-            UiNode(
-                ref=10, role="textbox", frame_path=["contentFrame"], order=10,
-                container_ref=8, name_source=NameSource.NONE,
-            ),
-            UiNode(
-                ref=11, role="button", name="SEARCH", frame_path=["contentFrame"],
-                order=11, container_ref=8, name_source=NameSource.VALUE,
-            ),
-        ],
-    )
-
-
-def test_the_model_is_given_a_near_hint_for_unnamed_fields():
-    rendered = render_for_model(_screen())
-    assert '[10] textbox      (no name) near="MEMBER NUMBER"' in rendered
-
-
-def test_the_model_never_sees_markup_or_ids():
-    rendered = render_for_model(_screen())
-    for forbidden in ("<td", "<input", "ctl00", "css", "xpath", "#"):
-        assert forbidden not in rendered.lower()
-
-
-def test_credentials_reach_the_browser_but_not_the_model():
-    text, env_var = substitute_secrets("{{APP_PASSWORD}}", {"APP_PASSWORD": "s3cret"})
-    assert (text, env_var) == ("s3cret", "APP_PASSWORD")
-    assert substitute_secrets("10001", {}) == ("10001", None)
-
-
-def test_an_unset_credential_is_an_error_not_a_guess():
-    with pytest.raises(KeyError, match="APP_PASSWORD"):
-        substitute_secrets("{{APP_PASSWORD}}", {})
-
-
-def test_no_progress_is_detected_by_observation_digest():
-    same = ["a", "a", "a"]
-    assert DiscoveryAgent._stalled(same)
-    assert not DiscoveryAgent._stalled(["a", "a", "b"])
-    assert not DiscoveryAgent._stalled(["a", "a"])
-
-
-def test_labels_are_preferred_over_data_as_anchors():
-    """The cell nearest a balance holds the account nickname, which differs
-    per member. Anchoring there yields an artifact that works for one member."""
-    assert Recorder._looks_like_a_label("CURRENT BALANCE")
-    assert Recorder._looks_like_a_label("SAVINGS")
-    assert not Recorder._looks_like_a_label("10001-S01")
-    assert not Recorder._looks_like_a_label("Primary Share")
 
 
 # ------------------------------------------------------------ scripted model
