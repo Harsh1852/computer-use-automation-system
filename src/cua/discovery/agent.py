@@ -46,7 +46,7 @@ NO_PROGRESS_LIMIT = 3
 
 @dataclass
 class DiscoveryResult:
-    status: str  # "done" | "stuck" | "exhausted"
+    status: str  # "done" | "stuck" | "blocked" | "exhausted" | "error"
     reason: str = ""
     proposal: dict[str, Any] = field(default_factory=dict)
     tool_calls: int = 0
@@ -108,6 +108,7 @@ class DiscoveryAgent:
         max_steps: int = MAX_STEPS,
         wall_clock_s: int = WALL_CLOCK_S,
         supervised: bool = False,
+        on_blocked: Any | None = None,
     ) -> None:
         self.surface = surface
         self.recorder = recorder
@@ -118,6 +119,7 @@ class DiscoveryAgent:
         self.max_steps = max_steps
         self.wall_clock_s = wall_clock_s
         self.supervised = supervised
+        self.on_blocked = on_blocked
         self.system_prompt = system_prompt(supervised)
 
         self.model = model or os.environ.get("OPENAI_MODEL")
@@ -227,6 +229,25 @@ class DiscoveryAgent:
                 messages.append(
                     {"role": "tool", "tool_call_id": call.id, "content": outcome.text}
                 )
+
+                if outcome.error == "policy_blocked":
+                    blocked = self.tools.blocked
+                    status = "blocked"
+                    reason = f"RISKY_APPROVAL: {blocked} (rule: {blocked.rule})"
+                    self.log.event(
+                        "agent.policy_blocked",
+                        step=name,
+                        rule=blocked.rule,
+                        reason="RISKY_APPROVAL",
+                        detail=str(blocked),
+                    )
+                    if self.on_blocked is not None:
+                        self.on_blocked(reason, str(blocked))
+                    messages.append(
+                        {"role": "tool", "tool_call_id": call.id, "content": outcome.text}
+                    )
+                    finished = True
+                    break
 
                 if outcome.observation_after is not None and name in MUTATING_TOOLS:
                     digests.append(outcome.observation_after.digest())

@@ -459,6 +459,13 @@ class RecoveryAction(str, Enum):
     RETRY_STEP = "retry_step"
     RELOAD = "reload"
     RE_RESOLVE = "re_resolve"
+    REAUTHENTICATE = "reauthenticate"
+    """Re-run the capability's own sign-on steps.
+
+    Declared rather than inferred: guessing which steps authenticate would
+    mean the executor deciding on its own to re-enter a credential, which is
+    exactly the decision that should be written down and reviewed. Gated
+    additionally by ``enforcement.reauth_allowed`` in policy."""
 
 
 class RecoveryRule(Schema):
@@ -472,6 +479,8 @@ class RecoveryRule(Schema):
     when: Condition
     do: RecoveryAction
     target: TargetSpec | None = None
+    steps: list[str] = []
+    """Step ids to re-run, for ``reauthenticate``."""
     max_attempts: int = Field(default=1, ge=1, le=2)
     description: str = ""
 
@@ -479,6 +488,15 @@ class RecoveryRule(Schema):
     def _dismiss_needs_a_target(self) -> "RecoveryRule":
         if self.do is RecoveryAction.DISMISS and self.target is None:
             raise ValueError("a dismiss rule needs a target to click")
+        return self
+
+    @model_validator(mode="after")
+    def _reauth_names_its_steps(self) -> "RecoveryRule":
+        if self.do is RecoveryAction.REAUTHENTICATE and not self.steps:
+            raise ValueError(
+                "a reauthenticate rule must name the steps that sign on; "
+                "the executor may not guess which ones re-enter a credential"
+            )
         return self
 
 

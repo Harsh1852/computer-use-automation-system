@@ -1,0 +1,16 @@
+{
+  "at_step": "s1",
+  "capability_id": "reach_admin",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 172,
+  "escalations": [],
+  "evidence_ref": "evidence/replay-policy-blocked",
+  "expected": "an action permitted by policy",
+  "kind": "POLICY_BLOCKED",
+  "observed": "refusing to navigate to http://app:5000/admin/inject: matches denied pattern '**/admin/**' (rule: allowlist.denied_patterns)",
+  "recoveries": [],
+  "run_id": "run-94b37eee41",
+  "status": "failure",
+  "steps_executed": 0
+}

@@ -425,6 +425,7 @@ class WebPlaywrightSurface:
             description=f"{node.role} {label!r}",
             frame_path=tuple(node.frame_path),
             ref=node.ref,
+            label=node.name,
             element=element,
         )
 
@@ -475,6 +476,9 @@ class WebPlaywrightSurface:
             "url": self.page.url,
             "actor": self._actor,
             "frame_path": list(handle.frame_path) if handle else [],
+            # The gate grades risk from what is actually being clicked, not
+            # only from what the artifact claimed about it.
+            "label": handle.label if handle else None,
         }
         self._gate.check(action, context)
 

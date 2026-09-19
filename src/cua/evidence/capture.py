@@ -23,6 +23,23 @@ class EvidenceWriter:
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.verbose = verbose
         self._seq = 0
+        self.restricted_reason: str | None = None
+        self.restricted_captures: list[str] = []
+
+    def mark_restricted(self, reason: str) -> None:
+        """From here on, the screen is showing regulated data.
+
+        Of the two options — blur the regions, or mark the capture and keep
+        it out of the committed evidence — this takes the second. Blurring is
+        a guess about where the data is on screen, and a guess that is wrong
+        once has published a balance. Excluding the file is unambiguous, and
+        the manifest still records that a capture was taken and why, so the
+        evidence says what it is missing rather than pretending it is whole.
+
+        Sticky: once a run has displayed a member's record, later screens in
+        the same run generally still show it.
+        """
+        self.restricted_reason = self.restricted_reason or reason
 
     async def step_capture(
         self, surface: Surface, label: str, *, force: bool = False
@@ -36,10 +53,27 @@ class EvidenceWriter:
             snapshot = await surface.snapshot(name)
         except Exception as exc:  # pragma: no cover - capture must never break a run
             return {"capture_error": f"{type(exc).__name__}: {exc}"}
+
+        screenshot_ref = snapshot.screenshot_ref
+        if self.restricted_reason and screenshot_ref:
+            screenshot_ref = self._quarantine(screenshot_ref)
         return {
-            "screenshot": snapshot.screenshot_ref,
+            "screenshot": screenshot_ref,
             "a11y": snapshot.a11y_ref,
+            "contains_pii": bool(self.restricted_reason),
         }
+
+    def _quarantine(self, screenshot_ref: str) -> str:
+        """Move a capture out of the committed tree, keeping the reference."""
+        source = self.run_dir / screenshot_ref
+        if not source.exists():
+            return screenshot_ref
+        target = self.run_dir / "restricted" / Path(screenshot_ref).name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source.replace(target)
+        relative = str(target.relative_to(self.run_dir))
+        self.restricted_captures.append(relative)
+        return relative
 
     def observation_dump(self, observation: Observation, label: str) -> str:
         path = self.run_dir / "observations"

@@ -200,12 +200,20 @@ async def _replay(args: argparse.Namespace) -> int:
     run_dir = args.evidence or f"evidence/replay-{int(time.time())}"
     Path(run_dir).mkdir(parents=True, exist_ok=True)
 
+    from .policy import Mode, PolicyGate
+    from .schema import ApprovalState
+
+    gate = PolicyGate(
+        mode=Mode.REPLAY,
+        artifact_approved=capability.approval.state is ApprovalState.APPROVED,
+    )
     escalation = _build_escalation(args, capability, params) if args.escalate else None
     surface = registry.create(
         capability.target.surface_kind,
         entry_url=capability.target.entry_point,
         headless=args.headless,
         run_dir=run_dir,
+        gate=gate,
         lease=escalation["lease"] if escalation else None,
     )
     await surface.start()
@@ -227,6 +235,7 @@ async def _replay(args: argparse.Namespace) -> int:
             run_dir=run_dir,
             log=log,
             escalator=escalator,
+            reauth_allowed=gate.reauth_allowed,
             verbose_capture=args.capture_steps,
         )
         result = await executor.run(capability, params)
@@ -260,11 +269,14 @@ async def _discover(args: argparse.Namespace) -> int:
     run_dir = Path(args.evidence or f"evidence/discovery-{args.id}")
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    from .policy import Mode, PolicyGate
+
     surface = registry.create(
         SurfaceKind(args.surface_kind),
         entry_url=entry_url,
         headless=args.headless,
         run_dir=str(run_dir),
+        gate=PolicyGate(mode=Mode.DISCOVERY),
     )
     await surface.start()
     log = RunLog(run_dir, f"discovery-{args.id}", also_stdout=not args.quiet)

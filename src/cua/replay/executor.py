@@ -149,6 +149,7 @@ class ReplayExecutor:
         escalator: Escalator | None = None,
         detector_config: DetectorConfig | None = None,
         secrets: Mapping[str, str] | None = None,
+        reauth_allowed: bool = False,
         verbose_capture: bool = False,
     ) -> None:
         self.surface = surface
@@ -157,6 +158,7 @@ class ReplayExecutor:
         self.escalator = escalator or NoEscalation()
         self.detector_config = detector_config or DetectorConfig()
         self.secrets = dict(secrets) if secrets is not None else dict(os.environ)
+        self.reauth_allowed = reauth_allowed
         self.resolver = StepResolver(surface)
         self.evaluator = ConditionEvaluator(resolve_target=self._resolve_for_condition)
         self._log = log
@@ -182,7 +184,11 @@ class ReplayExecutor:
 
         detectors = DetectorSet(capability.outcomes, self.evaluator, self.detector_config)
         recovery = RecoveryEngine(
-            surface=self.surface, evaluator=self.evaluator, rules=capability.recoveries
+            surface=self.surface,
+            evaluator=self.evaluator,
+            rules=capability.recoveries,
+            reauth_allowed=self.reauth_allowed,
+            rerun_steps=lambda ids: self._rerun(capability, ids, params, state, log),
         )
 
         violation = self._validate_contract(capability, params)
@@ -566,6 +572,52 @@ class ReplayExecutor:
             threshold_ms=threshold,
         )
 
+    async def _rerun(self, capability, step_ids, params, state, log) -> bool:
+        """Re-run a declared subset of steps, with no guards and no recursion.
+
+        Used only by a `reauthenticate` recovery rule, which names its own
+        steps. Deliberately lean: resolve, act, wait for the step's own
+        postcondition. Re-entering the full loop here would mean a recovery
+        that can itself escalate and recover, and bounding that honestly is
+        harder than not allowing it.
+        """
+        for step_id in step_ids:
+            step = capability.step(step_id)
+            if step is None:
+                log.event("reauth.unknown_step", step=step_id)
+                return False
+
+            observation = await self.surface.observe()
+            resolution = await self.resolver.resolve(step, observation)
+            if not resolution.ok and step.action in _NEEDS_ELEMENT:
+                log.event("reauth.unresolved", step=step_id, observed=resolution.observed)
+                return False
+
+            result = await self.surface.act(
+                self._build_action(step, params), resolution.handle
+            )
+            if not result.ok:
+                log.event("reauth.action_failed", step=step_id, detail=result.detail)
+                return False
+
+            deadline = time.perf_counter() + step.timing.timeout_ms / 1000
+            while True:
+                observation = await self.surface.observe()
+                verdict = await self.evaluator.check(
+                    step.postcondition, observation, params=params,
+                    step=step, secrets=self.secrets,
+                )
+                if verdict.ok:
+                    break
+                if time.perf_counter() >= deadline:
+                    log.event("reauth.checkpoint_failed", step=step_id,
+                              expected=verdict.expected, observed=verdict.observed)
+                    return False
+                await asyncio.sleep(POLL_INTERVAL_S)
+
+        log.event("reauth.completed", steps=list(step_ids))
+        return True
+
     async def _classify_action_failure(self, result) -> FailureKind:
         """An action that would not run is not automatically a broken surface.
 
@@ -693,6 +745,13 @@ class ReplayExecutor:
         )
         coerced = coerce(value, declared.type if declared else ParamType.STRING)
         state.outputs[binding.name] = coerced
+        if declared is not None and declared.sensitivity.restricted:
+            # The screen is now displaying regulated data. Driven by the
+            # contract rather than by scanning pixels for something that
+            # looks like money.
+            self.evidence.mark_restricted(
+                f"output {binding.name!r} is {declared.sensitivity.value}"
+            )
         log.event(
             "step.read",
             step=step.id,
@@ -757,6 +816,11 @@ class ReplayExecutor:
                 "recoveries": len(state.recoveries),
                 "drift_signals": len(state.drift),
                 "escalations": len(state.escalations),
+                "restricted_captures": {
+                    "reason": self.evidence.restricted_reason,
+                    "files": self.evidence.restricted_captures,
+                    "committed": False,
+                },
             },
         )
         log.event(

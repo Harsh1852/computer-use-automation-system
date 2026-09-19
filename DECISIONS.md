@@ -350,3 +350,62 @@ and it is the sort of latent assumption human review exists to catch.
   person drives the session through VNC, which bypasses the Surface API
   entirely - bypassing it is what VNC *is*. The method is gated by the same
   lease check as everything else.
+
+## Phase 7 - policy and data handling
+
+- **One enforcement point, and it is checkable.** `PolicyGate.check()` is
+  called from `Surface.act()` and nowhere else. A longer rule list spread over
+  three call sites has three places to forget, and "the automation cannot
+  reach /admin" is only as strong as the number of places it has to be true.
+- **The gate does not trust the artifact's risk label.** An artifact is data;
+  a recording that under-declared a CONFIRM button as safe should still be
+  caught. The gate re-derives risk from the policy's route and label rules and
+  takes the higher of declared and derived. Demonstrated: discovery was run in
+  supervised mode, where the model had been *told* it could complete the
+  confirmation, and the gate refused anyway.
+- **Denials are evaluated first and independently.** A broader allow pattern
+  cannot re-open something explicitly closed.
+- **The current URL is checked, not only the destination.** If the application
+  redirects somewhere unsanctioned, the next click stops the run rather than
+  typing into whatever arrived.
+- **Double-star is expanded explicitly rather than left to fnmatch.** fnmatch
+  lets a single star swallow a path separator, so the members pattern would
+  have matched a lookalike host. There is a test for it.
+- **An absent policy file is an error, not an empty allowlist.** The most
+  dangerous possible default is "no rules loaded, therefore nothing refused".
+- **Redaction is on by default at the log sink.** RunLog installs the redactor
+  at position zero of the processor chain unless explicitly disabled.
+  Redaction that depends on each call site remembering is redaction that fails
+  the first time somebody adds a log line in a hurry.
+- **Two redaction mechanisms, because they fail differently.** Exact secret
+  values catch a credential in any shape, including inside a URL or an
+  exception message. Regex patterns catch regulated *shapes* that nobody
+  registered because nobody knew they were about to be logged. Secrets are
+  scrubbed longest-first, or a short secret that prefixes a longer one leaves
+  the tail behind.
+- **Regulated screenshots are quarantined, not blurred.** Of the two options
+  the spec offers, blurring is a guess about where the data sits on screen,
+  and a guess that is wrong once has published a balance. Captures taken after
+  a pii-tagged output has been read move to `restricted/`, which is
+  gitignored; the manifest records that they exist, why, and that they are not
+  committed - so the evidence says what it is missing rather than pretending
+  to be whole. The trigger is the *contract*, not pixel-scanning.
+- **Automatic re-authentication is off, and the flag is real.**
+  `reauth_allowed: false` ships as the default: a session that dies mid-flow
+  may have died from a lockout, a policy change, or a concurrent sign-on, and
+  signing back in silently hides all three while risking a loop against an
+  account being locked. Escalating surfaces it once. When the flag is true, a
+  capability may declare a `reauthenticate` recovery rule that *names the
+  steps that sign on* - the executor may not guess which steps re-enter a
+  credential. Both branches are tested against the live app with the same
+  artifact and the same fault, one flag apart.
+- **The secret sweep covers every configured secret, not just the password.**
+  The test reads the policy's secret_env list and scans every committed byte
+  of artifacts/ and evidence/ for each value, including the model API key.
+
+The asymmetry, stated plainly because it is the point: discovery may never
+perform an irreversible action, because the model is exploratory and fallible
+and an account opened by mistake cannot be un-opened. Replay may, because a
+human has already reviewed exactly which step is irreversible - but only once
+the artifact has earned approval. Today open_subaccount is a draft, so
+replaying it runs twelve steps, reaches the review screen, and stops.

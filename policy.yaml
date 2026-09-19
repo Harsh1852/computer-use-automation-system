@@ -1,0 +1,70 @@
+# The single source of what the automation is permitted to do.
+#
+# Read by PolicyGate, which is called from exactly one place in the system:
+# Surface.act(). Nothing else enforces anything. Being able to say "there is
+# one enforcement point" is worth more than a longer rule list, because a
+# longer list with three call sites has three places to forget.
+
+allowlist:
+  # Where the automation may go. Anything not matched is refused, so a
+  # redirect to an unexpected host stops the run rather than following it.
+  url_patterns:
+    - "http://app:5000/login*"
+    - "http://app:5000/app"
+    - "http://app:5000/nav*"
+    - "http://app:5000/members/**"
+    - "http://app:5000/t/summit-cu/**"
+    - "http://app:5000/static/**"
+  # Checked first and independently: a denial cannot be undone by a broader
+  # allow pattern above it.
+  denied_patterns:
+    - "**/admin/**"
+  action_types: [navigate, click, type, select, read, wait, assert]
+
+risk_rules:
+  # The gate classifies risk itself rather than trusting the artifact's own
+  # label. An artifact is data; if a recording under-declared a step, the
+  # gate should still catch it.
+  irreversible_routes:
+    - "**/subaccount/confirm"
+    - "**/transfer/**"
+  irreversible_labels:
+    - "CONFIRM"
+    - "SUBMIT TRANSFER"
+    - "DELETE"
+
+enforcement:
+  # The asymmetry, and it is deliberate. Discovery is exploratory and the
+  # model is fallible, so it may never execute an irreversible action: it
+  # stops at the review screen and escalates for approval. Replay is a
+  # reviewed, versioned artifact in which a human has already seen exactly
+  # which step is irreversible, so it may proceed - but only once the
+  # artifact has earned approval.
+  discovery:
+    irreversible: block
+    state_changing: allow
+  replay:
+    irreversible: require_approved_artifact
+    state_changing: allow
+
+  # Automatic re-authentication is off. A session that dies mid-flow may have
+  # died because of a lockout, a policy change, or a concurrent sign-on
+  # elsewhere; signing back in silently hides all three and risks a loop
+  # against an account that is being locked. Escalating surfaces it to a
+  # person once. Set true, with a declared `reauthenticate` recovery rule on
+  # the capability, to allow it.
+  reauth_allowed: false
+
+redaction:
+  # Applied by a structlog processor at the sink, so a caller cannot bypass
+  # it by forgetting to call something.
+  patterns:
+    ssn: '\b\d{3}-\d{2}-\d{4}\b'
+    card: '\b(?:\d[ -]*?){13,19}\b'
+    account: '\b\d{8,}\b'
+  # Values of these environment variables are scrubbed wherever they appear,
+  # whatever shape they happen to have.
+  secret_env:
+    - APP_PASSWORD
+    - APP_USER
+    - OPENAI_API_KEY

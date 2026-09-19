@@ -1,0 +1,20 @@
+url    http://app:5000/login
+title  MERIDIAN CoreBank - SIGN ON
+status 200
+nodes  13   dialogs 0   banners 0
+
+ REF  FRAME          ROLE           NAME                                     VALUE          SRC
+-----------------------------------------------------------------------------------------------
+   0  (top)          row            SIGN ON                                                 text
+   1  (top)          cell           SIGN ON                                                 text
+   2  (top)          row            MERIDIAN CoreBank — Servicing Console                   text
+   3  (top)          cell           MERIDIAN CoreBank — Servicing Console                   text
+   4  (top)          row            USER ID                                                 text
+   5  (top)          cell           USER ID                                                 text
+   6  (top)          textbox                                                 svc_agent      none
+   7  (top)          row            PASSWORD                                                text
+   8  (top)          cell           PASSWORD                                                text
+   9  (top)          textbox                                                                none
+  10  (top)          button         SIGN ON                                                 value
+  11  (top)          row            MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text
+  12  (top)          cell           MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text

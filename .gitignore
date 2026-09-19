@@ -17,3 +17,7 @@ PROJECT_SPEC.md
 
 # auto-named ad-hoc replay runs; only the named evidence dirs are deliverable
 evidence/replay-[0-9]*/
+
+# Screenshots taken while a page was displaying regulated data. The run
+# keeps them locally; the manifest records that they exist and why.
+evidence/**/restricted/

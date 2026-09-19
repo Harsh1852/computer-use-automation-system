@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from ..schema import Action, ActionType, ExtractFrom, Observation
-from ..surface.base import Surface
+from ..surface.base import PolicyViolation, Surface
 from .prompts import render_for_model, substitute_secrets
 
 TOOL_SPECS: list[dict[str, Any]] = [
@@ -208,6 +208,7 @@ class ToolBox:
         self.secrets = dict(secrets)
         self.allow_irreversible = allow_irreversible
         self.last_observation: Observation | None = None
+        self.blocked: PolicyViolation | None = None
 
     async def observe(self) -> Observation:
         self.last_observation = await self.surface.observe()
@@ -252,7 +253,20 @@ class ToolBox:
 
         action = self._build(name, args, text, secret_ref, node)
         started = time.perf_counter()
-        result = await self.surface.act(action, handle)
+        try:
+            result = await self.surface.act(action, handle)
+        except PolicyViolation as exc:
+            # The gate refused. That is not an error in the run — it is the
+            # run reaching a decision a person has to make — so it is
+            # reported as such and the agent stops rather than retrying.
+            self.blocked = exc
+            return ToolOutcome(
+                text=(
+                    f"BLOCKED BY POLICY: {exc}. This needs human approval. "
+                    "Call stuck describing what requires sign-off."
+                ),
+                error="policy_blocked",
+            )
         duration_ms = int((time.perf_counter() - started) * 1000)
 
         after = await self.observe()

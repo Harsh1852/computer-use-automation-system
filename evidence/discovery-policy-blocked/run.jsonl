@@ -1,0 +1,15 @@
+{"args": {"url": "http://app:5000/login"}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:33.500331Z", "tool": "navigate"}
+{"args": {"ref": 6, "text": "{{APP_USER}}"}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:35.432447Z", "tool": "type"}
+{"args": {"ref": 9, "text": "{{APP_PASSWORD}}"}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:35.589376Z", "tool": "type"}
+{"args": {"ref": 10}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:37.214601Z", "tool": "click"}
+{"args": {"ref": 10, "text": "<value>"}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:38.900784Z", "tool": "type"}
+{"args": {"ref": 11}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:40.198814Z", "tool": "click"}
+{"args": {"ref": 33}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:41.293741Z", "tool": "click"}
+{"args": {"option": "SAVINGS", "ref": 13}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:42.798930Z", "tool": "select"}
+{"args": {"ref": 16, "text": "<value>"}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:44.065742Z", "tool": "type"}
+{"args": {"ref": 19, "text": "<value>"}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:44.397219Z", "tool": "type"}
+{"args": {"option": "10001-C01 (CHECKING)", "ref": 22}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:45.769464Z", "tool": "select"}
+{"args": {"ref": 23}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:38:54.706885Z", "tool": "click"}
+{"args": {"ref": 24}, "event": "agent.tool", "level": "info", "run_id": "discovery-blocked_subaccount", "timestamp": "2026-09-19T02:39:10.913849Z", "tool": "click"}
+{"detail": "discovery may not perform a irreversible action (discovery:click); it must stop and escalate for approval", "event": "agent.policy_blocked", "level": "info", "reason": "RISKY_APPROVAL", "rule": "enforcement.discovery.irreversible", "run_id": "discovery-blocked_subaccount", "step": "click", "timestamp": "2026-09-19T02:39:10.947798Z"}
+{"duration_s": 39.8, "event": "agent.finish", "level": "info", "reason": "RISKY_APPROVAL: discovery may not perform a irreversible action (discovery:click); it must stop and escalate for approval (rule: enforcement.discovery.irreversible)", "recorded_steps": 12, "run_id": "discovery-blocked_subaccount", "skipped": [], "status": "blocked", "timestamp": "2026-09-19T02:39:10.950603Z", "tool_calls": 13}

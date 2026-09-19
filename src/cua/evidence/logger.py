@@ -28,6 +28,7 @@ class RunLog:
         *,
         processors: Sequence[Processor] = (),
         also_stdout: bool = False,
+        redact: bool = True,
     ) -> None:
         self.run_dir = Path(run_dir)
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -36,7 +37,20 @@ class RunLog:
         self._stream = self.path.open("a", encoding="utf-8")
         self._also_stdout = also_stdout
 
+        # Redaction goes first and is on unless explicitly disabled, so a
+        # caller cannot bypass it by forgetting to add it. A log line written
+        # in a hurry is exactly the one that leaks.
+        head: list[Processor] = []
+        if redact:
+            from ..policy.redaction import default_redactor
+
+            self.redactor = default_redactor()
+            head.append(self.redactor)
+        else:
+            self.redactor = None
+
         chain: list[Processor] = [
+            *head,
             *processors,
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso", utc=True),

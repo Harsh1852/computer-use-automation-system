@@ -1,0 +1,43 @@
+url    http://app:5000/app
+title  MERIDIAN CoreBank - SERVICING CONSOLE
+status 200
+nodes  36   dialogs 0   banners 0
+
+ REF  FRAME          ROLE           NAME                                     VALUE          SRC
+-----------------------------------------------------------------------------------------------
+   0  navFrame       row            MERIDIAN CoreBank                                       text
+   1  navFrame       cell           MERIDIAN CoreBank                                       text
+   2  navFrame       row            MEMBER SEARCH                                           text
+   3  navFrame       link           MEMBER SEARCH                                           text
+   4  navFrame       row            SIGN OFF                                                text
+   5  navFrame       link           SIGN OFF                                                text
+   6  contentFrame   row            MEMBER DETAIL                                           text
+   7  contentFrame   cell           MEMBER DETAIL                                           text
+   8  contentFrame   row            MEMBER NUMBER 10001 NAME TESTER, ALEX Q                 text
+   9  contentFrame   cell           MEMBER NUMBER                                           text
+  10  contentFrame   cell           10001                                                   text
+  11  contentFrame   cell           NAME                                                    text
+  12  contentFrame   cell           TESTER, ALEX Q                                          text
+  13  contentFrame   row            STATUS ACTIVE BRANCH 001 - MAIN                         text
+  14  contentFrame   cell           STATUS                                                  text
+  15  contentFrame   cell           ACTIVE                                                  text
+  16  contentFrame   cell           BRANCH                                                  text
+  17  contentFrame   cell           001 - MAIN                                              text
+  18  contentFrame   row            ACCOUNT TYPE ACCOUNT NUMBER NICKNAME CUR                text
+  19  contentFrame   cell           ACCOUNT TYPE                                            text
+  20  contentFrame   cell           ACCOUNT NUMBER                                          text
+  21  contentFrame   cell           NICKNAME                                                text
+  22  contentFrame   cell           CURRENT BALANCE                                         text
+  23  contentFrame   row            SAVINGS 10001-S01 PRIMARY SHARE 1,234.56                text
+  24  contentFrame   cell           SAVINGS                                                 text
+  25  contentFrame   cell           10001-S01                                               text
+  26  contentFrame   cell           PRIMARY SHARE                                           text
+  27  contentFrame   cell           1,234.56                                                text
+  28  contentFrame   row            CHECKING 10001-C01 DRAFT 402.10                         text
+  29  contentFrame   cell           CHECKING                                                text
+  30  contentFrame   cell           10001-C01                                               text
+  31  contentFrame   cell           DRAFT                                                   text
+  32  contentFrame   cell           402.10                                                  text
+  33  contentFrame   button         OPEN NEW SUB-ACCOUNT                                    value
+  34  contentFrame   row            MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text
+  35  contentFrame   cell           MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text

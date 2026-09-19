@@ -6,9 +6,9 @@ is recorded as a typed, versioned **capability artifact**. That artifact is then
 the executor cannot safely proceed it escalates to a human who takes control of the *same live
 browser session*, fixes the situation, and hands control back so the run resumes.
 
-> **Build status:** Phases 1–5 of 8 complete — the target application, the artifact schema, the
-> surface abstraction, deterministic replay and the discovery agent. Subsequent phases add
-> escalation, policy, and the write-up.
+> **Build status:** Phases 1–7 of 8 complete — the target application, the artifact schema, the
+> surface abstraction, deterministic replay, the discovery agent, escalation and policy. The
+> final phase adds the stretch goals and the write-up.
 
 ---
 
@@ -249,6 +249,89 @@ same asymmetry rather than trusting a prompt.
 
 Both artifacts are emitted as `draft`, reference credentials only as `secret_ref`, and contain no
 seeded password anywhere — there is a test that greps for it.
+
+---
+
+## Escalation and control transfer
+
+```bash
+make escalation-demo            # scripted operator, unattended
+make escalation-demo MANUAL=1   # stops and hands the session to you
+```
+
+A replay that cannot safely continue hands the **same live browser** to a person. The lease is
+the authority: `Surface.act()` asks it before every action, so automation acting while an
+operator holds the session raises `LeaseViolation` rather than racing.
+
+| Port | Server | Purpose |
+|---|---|---|
+| `6080` | `x11vnc -viewonly` on `:5900` | monitor — the console embeds this by default |
+| `6081` | `x11vnc` on `:5901` | interactive — swapped in **only once the lease has moved** |
+
+View-only is a property of the socket, not a `view_only=true` parameter anyone could delete
+from the address bar. The console at `localhost:8080` follows the lease rather than deciding it.
+
+An expired hold ends the run as `HUMAN_TIMEOUT` and never reverts — the page is in whatever
+state the operator left it. Resume is bounded at two escalations: on hand-back the executor
+re-runs the guard, so an operator who did not fix the condition produces the same finding and
+the second time it stops. Operator hold time is excluded from step timeouts.
+
+Operator actions are captured by capture-phase listeners in every frame and land in
+`run.jsonl` interleaved with the machine's, gated on the lease so automation is never
+mislabelled:
+
+```
+02:16:11.123  intervention.open    observed='YOUR SESSION HAS TIMED OUT' on screen
+02:16:11.422  human.action         kind=change name=USER ID   value=<redacted:9 chars>
+02:16:11.507  human.action         kind=change name=PASSWORD  value=<password>
+02:16:11.509  human.action         kind=click  name=SIGN ON
+02:16:11.554  intervention.closed  outcome=released human_steps=4
+02:16:14.357  run.finish           status=success steps_executed=7
+```
+
+Values are shapes, never content: which control the operator touched explains the resume; what
+they typed does not need to be in a repository.
+
+---
+
+## Safety and data handling
+
+[`policy.yaml`](policy.yaml) is the single source of what the automation may do, and
+`PolicyGate.check()` is called from **`Surface.act()` and nowhere else**.
+
+```
+$ make replay ARTIFACT=tests/fixtures/reach_admin.v1.json
+FAILURE  POLICY_BLOCKED  at s1
+refusing to navigate to http://app:5000/admin/inject:
+matches denied pattern '**/admin/**'  (rule: allowlist.denied_patterns)
+```
+
+**The gate does not trust the artifact's own risk label.** A recording that under-declared a
+CONFIRM button should still be caught, so risk is re-derived from the policy's route and label
+rules and the higher of the two applies. Demonstrated by running discovery in `--supervised`
+mode — where the model had been *told* it could confirm — and having the gate refuse anyway
+with `RISKY_APPROVAL`. The prompt is advisory; the gate is enforcement.
+
+**The asymmetry.** Discovery may never perform an irreversible action: the model is exploratory
+and fallible, and an account opened by mistake cannot be un-opened. Replay may, because a human
+has already reviewed exactly which step is irreversible — but only once the artifact is
+`approved`. `open_subaccount` is still a draft, so replaying it runs twelve steps, reaches the
+review screen, and stops at `s13`.
+
+**Redaction is at the sink.** `RunLog` installs the redactor at the front of the processor
+chain unless explicitly disabled, so a log line written in a hurry is still covered. Exact
+secret values catch a credential in any shape; regex patterns catch regulated shapes nobody
+registered.
+
+**Regulated screenshots are quarantined, not blurred.** Blurring is a guess about where the
+data sits on screen, and a guess that is wrong once has published a balance. Captures taken
+after a `pii`-tagged output is read move to `restricted/` (gitignored); the manifest records
+that they exist and that they are not committed.
+
+**Automatic re-authentication is off by default**, and the flag is real rather than decorative.
+When enabled, a capability may declare a `reauthenticate` rule that *names the steps that sign
+on* — the executor may not guess which steps re-enter a credential. Both branches are tested
+against the live app, one flag apart.
 
 ### Running the tests
 

@@ -48,6 +48,11 @@ class RecoveryEngine:
     evaluator: ConditionEvaluator
     rules: Sequence[RecoveryRule] = field(default_factory=list)
     budget: int = GLOBAL_RECOVERY_BUDGET
+    reauth_allowed: bool = False
+    """From policy. A declared reauth rule still does nothing unless the
+    deployment has allowed automatic re-authentication."""
+    rerun_steps: Any = None
+    """Supplied by the executor: re-runs a named list of steps."""
 
     _used: dict[tuple[str, str], int] = field(default_factory=dict, init=False)
     _spent: int = field(default=0, init=False)
@@ -56,6 +61,8 @@ class RecoveryEngine:
         self, observation: Observation, params: Mapping[str, Any]
     ) -> RecoveryRule | None:
         for rule in self.rules:
+            if rule.do is RecoveryAction.REAUTHENTICATE and not self.reauth_allowed:
+                continue
             verdict = await self.evaluator.check(rule.when, observation, params=params)
             if verdict.ok:
                 return rule
@@ -113,6 +120,11 @@ class RecoveryEngine:
                 None,
             )
             return f"reloaded {observation.url}"
+        if rule.do is RecoveryAction.REAUTHENTICATE:
+            if self.rerun_steps is None:
+                return "no re-run hook available"
+            ok = await self.rerun_steps(rule.steps)
+            return f"re-ran sign-on steps {rule.steps}: {'ok' if ok else 'failed'}"
         if rule.do in (RecoveryAction.RETRY_STEP, RecoveryAction.RE_RESOLVE):
             # Both are handled by the executor simply going round again; the
             # rule exists so the retry is declared and counted rather than

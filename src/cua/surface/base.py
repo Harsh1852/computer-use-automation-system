@@ -69,6 +69,12 @@ class Handle:
     frame_path: tuple[str, ...] = ()
     ref: int | None = None
 
+    label: str | None = None
+    """The control's visible name, e.g. ``CONFIRM``.
+
+    Carried so the policy gate can apply its own `irreversible_labels` rule
+    without parsing `description` or trusting the artifact's risk field."""
+
 
 @dataclass
 class LadderOutcome:

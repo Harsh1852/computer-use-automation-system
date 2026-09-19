@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "id": "reach_admin",
+  "version": "1.0.0",
+  "title": "Attempt to reach the admin fault-injection route",
+  "description": "Exists to prove the allowlist refuses it. Never approved.",
+  "approval": {
+    "state": "draft",
+    "replays": 0,
+    "failures": 0
+  },
+  "target": {
+    "vendor_product": "MERIDIAN CoreBank",
+    "product_version": "7.4.11",
+    "tenant_id": "meridian",
+    "entry_point": "http://app:5000/login",
+    "surface_kind": "legacy_web"
+  },
+  "contract": {
+    "inputs": [],
+    "outputs": []
+  },
+  "outcomes": [],
+  "recoveries": [],
+  "steps": [
+    {
+      "id": "s1",
+      "intent": "Navigate to the admin fault-injection endpoint",
+      "action": "navigate",
+      "frame_path": [],
+      "value": {
+        "literal": "http://app:5000/admin/inject"
+      },
+      "postcondition": {
+        "kind": "url_matches",
+        "pattern": "*/admin/*"
+      },
+      "risk": "safe_reversible",
+      "timing": {
+        "observed_ms_p50": 100,
+        "timeout_ms": 5000
+      }
+    }
+  ],
+  "success_condition": {
+    "kind": "url_matches",
+    "pattern": "*/admin/*"
+  },
+  "provenance": {
+    "model": "hand-written",
+    "run_id": "handwritten-0001",
+    "transcript_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "recorded_at": "2026-09-18T00:00:00Z",
+    "goal": "Look up member 10001 and read their current savings balance.",
+    "recorder_version": "1.0"
+  }
+}
