@@ -14,3 +14,6 @@ node_modules/
 # The take-home brief itself (not part of the deliverable)
 Assignment A — Computer-Use Automation System.pdf
 PROJECT_SPEC.md
+
+# auto-named ad-hoc replay runs; only the named evidence dirs are deliverable
+evidence/replay-[0-9]*/
