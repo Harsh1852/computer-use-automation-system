@@ -191,6 +191,15 @@ class Surface(Protocol):
     async def pause(self) -> None: ...
     async def resume(self) -> None: ...
 
+    async def watch_human_actions(self, sink: Any) -> None:
+        """Start reporting operator actions to `sink` as plain dicts.
+
+        The mechanism is surface-specific — capture-phase DOM listeners here,
+        UIA automation events on Windows — but the shape handed to the sink is
+        not, which is why the escalation package can audit a handoff without
+        knowing what it is watching."""
+        ...
+
 
 # --------------------------------------------------------------------------
 # Shared determinism policy

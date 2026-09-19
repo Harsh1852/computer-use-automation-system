@@ -32,8 +32,11 @@ FROM mcr.microsoft.com/playwright/python:v1.55.0-noble AS cua
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
+# x11vnc twice over one Xvfb display gives the two endpoints the escalation
+# model needs: a view-only socket to watch, and an interactive one to drive.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends xvfb x11-utils \
+ && apt-get install -y --no-install-recommends \
+      xvfb x11-utils x11vnc novnc websockify \
  && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \
@@ -52,12 +55,17 @@ RUN uv pip install --system --no-cache \
       "playwright==1.55.0" \
       "pydantic>=2.7" "structlog>=24.1" "pyyaml>=6.0" \
       "openai>=1.40" "httpx>=0.27" "python-dotenv>=1.0" \
+      "fastapi>=0.111" "uvicorn[standard]>=0.30" "python-multipart>=0.0.9" \
       "pytest>=8" "pytest-asyncio>=0.23" "jsonschema>=4.22"
 
 COPY docker/cua-entrypoint.sh /usr/local/bin/cua-entrypoint
 RUN chmod +x /usr/local/bin/cua-entrypoint
 
 COPY . /work
+
+# 8080 operator console, 8081 capability API, 6080 monitor VNC,
+# 6081 interactive VNC.
+EXPOSE 8080 8081 6080 6081
 
 ENTRYPOINT ["cua-entrypoint"]
 CMD ["sleep", "infinity"]

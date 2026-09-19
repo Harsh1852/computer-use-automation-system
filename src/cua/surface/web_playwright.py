@@ -65,6 +65,7 @@ from .base import (
 )
 
 _SCANNER = (Path(__file__).parent / "scan.js").read_text(encoding="utf-8")
+_HUMAN_EVENTS = (Path(__file__).parent / "human_events.js").read_text(encoding="utf-8")
 
 _LAUNCH_ARGS = [
     "--no-sandbox",
@@ -119,6 +120,7 @@ class WebPlaywrightSurface:
         self._observation: Observation | None = None
         self._stale = True
         self._paused = False
+        self._watching = False
         self._status_by_url: dict[str, int] = {}
 
     # ------------------------------------------------------------ lifecycle
@@ -604,6 +606,47 @@ class WebPlaywrightSurface:
         )
 
     # ------------------------------------------------------- control handoff
+
+    async def watch_human_actions(self, sink: Any) -> None:
+        """Install capture-phase listeners in every frame, now and later.
+
+        `add_init_script` covers frames the operator navigates to after taking
+        control; the explicit evaluate covers the frames already on screen,
+        which is the interesting case because the handoff happens mid-flow.
+        """
+        if self._watching:
+            return
+        self._watching = True
+
+        def relay(source: dict, payload: dict) -> None:
+            # The page cannot know its own frame path; the surface can.
+            payload["frame_path"] = self._frame_path(source["frame"])
+            sink(payload)
+
+        await self._context.expose_binding("__cuaHumanEvent", relay)
+        await self._context.add_init_script(_HUMAN_EVENTS)
+        for frame in self.page.frames:
+            try:
+                await frame.evaluate(_HUMAN_EVENTS)
+            except PlaywrightError:
+                continue
+
+    async def act_as_operator(self, token: str, action: Action, handle: Handle | None):
+        """Perform an action on behalf of a lease-holding operator.
+
+        In production a person drives this session through VNC, which bypasses
+        this API entirely — bypassing it is what VNC *is*. This exists so a
+        scripted operator can exercise the same handoff without a human in a
+        test, and it is gated by the identical lease check: the token must be
+        the current holder, or it raises like anything else would.
+        """
+        self._lease.assert_holder(token)
+        was_paused, actor = self._paused, self._actor
+        self._paused, self._actor = False, token
+        try:
+            return await self.act(action, handle)
+        finally:
+            self._paused, self._actor = was_paused, actor
 
     async def pause(self) -> None:
         """Stop accepting automation actions on this session.

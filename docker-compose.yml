@@ -31,9 +31,18 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       DISPLAY_NUM: "99"
       SCREEN_GEOMETRY: 1280x900x24
+      ENABLE_VNC: "1"
+    ports:
+      # 8080 operator console. 6080 is the view-only VNC bridge the console
+      # embeds by default; 6081 is the interactive one it swaps to once the
+      # lease has actually transferred to a person.
+      - "8080:8080"
+      - "6080:6080"
+      - "6081:6081"
     volumes:
       - ./src:/work/src:ro
       - ./tests:/work/tests:ro
+      - ./scripts:/work/scripts:ro
       - ./artifacts:/work/artifacts
       - ./evidence:/work/evidence
     init: true

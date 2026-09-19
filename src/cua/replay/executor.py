@@ -76,6 +76,13 @@ Every wait is bounded by the step's own recorded `timeout_ms`."""
 RETRY_BACKOFF_S = (0.4, 1.2)
 MAX_STEP_ATTEMPTS = 3  # the original plus two retries
 
+MAX_ESCALATIONS = 2
+"""How many times one run may ask a human for help.
+
+Resume is bounded, never a loop. On hand-back the executor re-runs the guard
+rather than blindly continuing, so if the operator did not actually fix the
+condition the same finding fires again — and the second time it stops."""
+
 
 class Escalator(Protocol):
     """Hands an unrecoverable-but-human-fixable condition to a person."""
@@ -96,6 +103,9 @@ class EscalationDecision:
     resumed: bool
     record: EscalationRecord | None = None
     note: str = ""
+    failure_kind: FailureKind | None = None
+    """Set when the handoff itself failed — an expired hold is HUMAN_TIMEOUT,
+    which is a different thing from the condition that caused the escalation."""
 
 
 class NoEscalation:
@@ -124,6 +134,8 @@ class RunState:
     steps_executed: int = 0
     authenticated: bool = False
     escalation_count: int = 0
+    escalated_s: float = 0.0
+    """Total wall time this run spent parked waiting for a person."""
 
 
 class ReplayExecutor:
@@ -254,6 +266,7 @@ class ReplayExecutor:
     ) -> ReplayResult | None:
         attempts = MAX_STEP_ATTEMPTS if self._retryable(step) else 1
         step_started = time.perf_counter()
+        escalated_before_step = state.escalated_s
 
         for attempt in range(1, attempts + 1):
             observation = await self.surface.observe()
@@ -325,7 +338,13 @@ class ReplayExecutor:
             if isinstance(settled, (Success, BusinessOutcomeResult, Failure)):
                 return settled
             if settled is True:
-                took_ms = int((time.perf_counter() - step_started) * 1000)
+                # Exclude time parked waiting for a person: a five minute
+                # hold is not a five minute page load, and reporting it as
+                # one would make the slow-response signal meaningless.
+                took_ms = int(
+                    (time.perf_counter() - step_started
+                     - (state.escalated_s - escalated_before_step)) * 1000
+                )
                 state.step_timings[step.id] = took_ms
                 self._note_if_slow(step, took_ms, state, log)
                 await self.evidence.step_capture(self.surface, f"{step.id}-{step.action.value}")
@@ -408,13 +427,25 @@ class ReplayExecutor:
                 log.event("guard.recovery_exhausted", step=step.id, detail=outcome.detail)
 
             if finding.kind is FindingKind.AUTH_WALL:
+                if state.escalation_count >= MAX_ESCALATIONS:
+                    return self._fail(
+                        capability, state, FailureKind.UNRECOVERABLE_CONDITION, step.id,
+                        finding.expected,
+                        f"{finding.observed}; escalated {state.escalation_count} times "
+                        "and the condition persisted",
+                    )
                 decision = await self._escalate(step, finding, observation, state, log)
                 if decision.resumed:
+                    # Deliberately not "continue from where we were": the loop
+                    # re-observes and re-runs the guard, so if the operator did
+                    # not actually fix it, the finding fires again and the
+                    # bound above stops the second round.
                     observation = await self.surface.observe()
                     continue
                 return self._fail(
-                    capability, state, FailureKind.UNRECOVERABLE_CONDITION, step.id,
-                    finding.expected, f"{finding.observed} ({decision.note})",
+                    capability, state,
+                    decision.failure_kind or FailureKind.UNRECOVERABLE_CONDITION,
+                    step.id, finding.expected, f"{finding.observed} ({decision.note})",
                 )
 
             await self.evidence.step_capture(self.surface, f"{step.id}-{finding.kind.value}", force=True)
@@ -441,10 +472,17 @@ class ReplayExecutor:
         That order is what makes "no such member" a returned answer instead of
         a checkpoint timeout.
         """
-        deadline = time.perf_counter() + step.timing.timeout_ms / 1000
         started = time.perf_counter()
+        escalated_at_entry = state.escalated_s
+        timeout_s = step.timing.timeout_ms / 1000
 
         while True:
+            # A step's timeout measures the *application*, not the operator.
+            # Time parked waiting for a human is added back, or any hold
+            # longer than the step timeout would guarantee a checkpoint
+            # failure the moment control came back — punishing the run for
+            # the very handoff that rescued it.
+            deadline = started + timeout_s + (state.escalated_s - escalated_at_entry)
             observation = await self.surface.observe()
             ctx = ScanContext(params=params, step=step, authenticated=state.authenticated)
 
@@ -561,6 +599,7 @@ class ReplayExecutor:
         await asyncio.sleep(delay)
 
     async def _escalate(self, step, finding, observation, state, log) -> EscalationDecision:
+        parked_from = time.perf_counter()
         state.escalation_count += 1
         log.event(
             "escalation.raised",
@@ -575,7 +614,14 @@ class ReplayExecutor:
         )
         if decision.record is not None:
             state.escalations.append(decision.record)
-        log.event("escalation.resolved", step=step.id, resumed=decision.resumed, note=decision.note)
+        state.escalated_s += time.perf_counter() - parked_from
+        log.event(
+            "escalation.resolved",
+            step=step.id,
+            resumed=decision.resumed,
+            note=decision.note,
+            parked_s=round(state.escalated_s, 1),
+        )
         return decision
 
     # -------------------------------------------------------------- binding

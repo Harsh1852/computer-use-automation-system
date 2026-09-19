@@ -64,3 +64,7 @@ CAPID ?= lookup_member_balance
 discover:
 	docker compose run --rm cua python -m cua.cli discover \
 	  --goal "$(GOAL)" --id $(CAPID) $(if $(WRITE),--write-artifact,)
+
+escalation-demo:
+	docker compose run --rm --service-ports cua \
+	  python scripts/escalation_demo.py $(if $(MANUAL),--manual,)

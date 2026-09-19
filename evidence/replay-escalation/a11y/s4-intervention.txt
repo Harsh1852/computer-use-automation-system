@@ -1,0 +1,28 @@
+url    http://app:5000/app
+title  MERIDIAN CoreBank - SERVICING CONSOLE
+status 200
+nodes  21   dialogs 0   banners 0
+
+ REF  FRAME          ROLE           NAME                                     VALUE          SRC
+-----------------------------------------------------------------------------------------------
+   0  navFrame       row            MERIDIAN CoreBank                                       text
+   1  navFrame       cell           MERIDIAN CoreBank                                       text
+   2  navFrame       row            MEMBER SEARCH                                           text
+   3  navFrame       link           MEMBER SEARCH                                           text
+   4  navFrame       row            SIGN OFF                                                text
+   5  navFrame       link           SIGN OFF                                                text
+   6  contentFrame   row            SIGN ON                                                 text
+   7  contentFrame   cell           SIGN ON                                                 text
+   8  contentFrame   row            MERIDIAN CoreBank — Servicing Console                   text
+   9  contentFrame   cell           MERIDIAN CoreBank — Servicing Console                   text
+  10  contentFrame   row            YOUR SESSION HAS TIMED OUT                              text
+  11  contentFrame   cell           YOUR SESSION HAS TIMED OUT                              text
+  12  contentFrame   row            USER ID                                                 text
+  13  contentFrame   cell           USER ID                                                 text
+  14  contentFrame   textbox                                                                none
+  15  contentFrame   row            PASSWORD                                                text
+  16  contentFrame   cell           PASSWORD                                                text
+  17  contentFrame   textbox                                                                none
+  18  contentFrame   button         SIGN ON                                                 value
+  19  contentFrame   row            MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text
+  20  contentFrame   cell           MERIDIAN CoreBank v7.4.11 | TENANT: MERI                text

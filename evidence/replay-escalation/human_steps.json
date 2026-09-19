@@ -1,0 +1,42 @@
+[
+  {
+    "at": "2026-09-19T02:16:11.422832Z",
+    "kind": "change",
+    "role": "textbox",
+    "name": "USER ID",
+    "frame_path": [],
+    "url": "http://app:5000/login",
+    "value": "<redacted:9 chars>",
+    "sensitive": false
+  },
+  {
+    "at": "2026-09-19T02:16:11.507842Z",
+    "kind": "change",
+    "role": "textbox",
+    "name": "PASSWORD",
+    "frame_path": [],
+    "url": "http://app:5000/login",
+    "value": null,
+    "sensitive": true
+  },
+  {
+    "at": "2026-09-19T02:16:11.509806Z",
+    "kind": "click",
+    "role": "button",
+    "name": "SIGN ON",
+    "frame_path": [],
+    "url": "http://app:5000/login",
+    "value": "<redacted:7 chars>",
+    "sensitive": false
+  },
+  {
+    "at": "2026-09-19T02:16:11.511058Z",
+    "kind": "submit",
+    "role": "form",
+    "name": null,
+    "frame_path": [],
+    "url": "http://app:5000/login",
+    "value": null,
+    "sensitive": false
+  }
+]

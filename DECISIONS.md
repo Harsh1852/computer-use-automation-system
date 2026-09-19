@@ -300,3 +300,53 @@ the funding account exists for the member being serviced. Replaying it for a
 member with no checking account fails at that step. That is a real property
 of the flow rather than a bug, it is why the artifact is emitted as `draft`,
 and it is the sort of latent assumption human review exists to catch.
+
+## Phase 6 - escalation and control transfer
+
+- **The lease is the authority; the UI follows it.** `Surface.act()` asks the
+  lease before every action, so "automation and the human both acted" is a
+  `LeaseViolation` rather than a race to be avoided by convention. The console
+  swaps its iframe to the interactive endpoint *because* the lease moved, not
+  the other way round.
+- **Two VNC servers on one display, not one server with a URL flag.**
+  `x11vnc -viewonly` owns port 5900 (monitor, bridged to 6080); a second
+  x11vnc without the flag owns 5901 (interactive, bridged to 6081). View-only
+  is therefore a property of the socket, not of a `view_only=true` parameter
+  anyone could delete from the address bar.
+- **An expired operator hold terminates the run as HUMAN_TIMEOUT.** It never
+  reverts to automation. If somebody took control because something was wrong
+  and then walked away, the page is in whatever state they left it and the
+  executor's model of where it is no longer matches reality.
+- **Resume is bounded at two escalations.** On hand-back the executor re-runs
+  the guard rather than continuing blindly, so an operator who did not
+  actually fix the condition produces the same finding again - and the second
+  time it stops instead of looping.
+- **Operator hold time is excluded from step timeouts.** Found while building
+  the demo: a step's `timeout_ms` measures the application, not the person. A
+  ten-minute hold against a 25-second step would have guaranteed a checkpoint
+  failure the instant control came back, punishing the run for the handoff
+  that rescued it. The same exclusion applies to the slow-response signal - a
+  five minute hold is not a five minute page load.
+- **Human capture is gated on the lease, not on the listeners.** The
+  capture-phase listeners stay installed after hand-back, so without a gate
+  every automation click after a resume was logged as something a person did.
+  Caught by reading the first demo's timeline: three automation actions were
+  attributed to the operator.
+- **The hand-back signal is armed before the request is published.** A real
+  race, caught by a test that failed only in suite order: an operator fast
+  enough to resolve an intervention the instant it appeared had that
+  resolution wiped by the reset, hanging the run until timeout.
+- **Captured values are shapes, never content.** A password entry records
+  `PASSWORD`, `sensitive: true` and nothing else; other fields record
+  `<redacted:N chars>`. Which control the operator touched explains the
+  resume; what they typed into it does not need to be in a repository. The
+  name of a clicked element is taken only from a short leaf - an earlier
+  version grabbed a container's `innerText` and wrote the whole screen,
+  including whatever record was on display, into the evidence log.
+- **The console runs in the replay process.** It has to see the live lease and
+  the live intervention; sharing those across processes would mean building
+  the queue the brief explicitly says not to build.
+- **`act_as_operator` exists for scripted operators only.** In production a
+  person drives the session through VNC, which bypasses the Surface API
+  entirely - bypassing it is what VNC *is*. The method is gated by the same
+  lease check as everything else.

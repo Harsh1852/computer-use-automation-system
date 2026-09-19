@@ -128,6 +128,66 @@ def find_artifact(name: str) -> Path:
     return matches[-1]
 
 
+def _build_escalation(args, capability, params) -> dict:
+    from .escalation import InterventionStore, LeaseManager
+
+    return {
+        "lease": LeaseManager(
+            args.session or f"{capability.id}-{int(time.time())}",
+            hold_seconds=args.hold_seconds,
+        ),
+        "store": InterventionStore(),
+        "human": None,
+    }
+
+
+def _human_capture(log, lease):
+    from .escalation import HumanCapture
+
+    return HumanCapture(log, is_active=lambda: lease.held_by_operator)
+
+
+def _operator_escalator(escalation, surface, capability, params, log):
+    from .escalation import OperatorEscalator
+
+    return OperatorEscalator(
+        lease=escalation["lease"],
+        store=escalation["store"],
+        surface=surface,
+        capability=capability,
+        params=params,
+        log=log,
+        human=escalation["human"],
+        goal=capability.description,
+    )
+
+
+async def _serve_console(escalation, port: int):
+    """Run the console in-process, for the lifetime of this run.
+
+    Single process by choice: the console has to see the live lease and the
+    live intervention, and sharing those across processes would mean building
+    the queue the brief explicitly says not to build.
+    """
+    import uvicorn
+
+    from .escalation.operator_app import create_operator_app
+
+    app = create_operator_app(
+        lease=escalation["lease"],
+        store=escalation["store"],
+        human=escalation["human"],
+    )
+    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="warning")
+    server = uvicorn.Server(config)
+    asyncio.get_running_loop().create_task(server.serve())
+    for _ in range(100):
+        if server.started:
+            break
+        await asyncio.sleep(0.05)
+    return server
+
+
 async def _replay(args: argparse.Namespace) -> int:
     from .evidence import RunLog
     from .replay import ReplayExecutor
@@ -140,20 +200,43 @@ async def _replay(args: argparse.Namespace) -> int:
     run_dir = args.evidence or f"evidence/replay-{int(time.time())}"
     Path(run_dir).mkdir(parents=True, exist_ok=True)
 
+    escalation = _build_escalation(args, capability, params) if args.escalate else None
     surface = registry.create(
         capability.target.surface_kind,
         entry_url=capability.target.entry_point,
         headless=args.headless,
         run_dir=run_dir,
+        lease=escalation["lease"] if escalation else None,
     )
     await surface.start()
     log = RunLog(run_dir, "pending", also_stdout=args.trace)
+    console = None
     try:
+        escalator = None
+        if escalation is not None:
+            escalation["human"] = _human_capture(log, escalation["lease"])
+            escalator = _operator_escalator(escalation, surface, capability, params, log)
+            console = await _serve_console(escalation, args.console_port)
+            session_id = escalation["lease"].lease.session_id
+            print()
+            print(f"operator console  http://localhost:{args.console_port}")
+            print(f"session           {session_id}")
+            print()
         executor = ReplayExecutor(
-            surface, run_dir=run_dir, log=log, verbose_capture=args.capture_steps
+            surface,
+            run_dir=run_dir,
+            log=log,
+            escalator=escalator,
+            verbose_capture=args.capture_steps,
         )
         result = await executor.run(capability, params)
+        if escalation is not None and escalation["human"].steps:
+            (Path(run_dir) / "human_steps.json").write_text(
+                json.dumps(escalation["human"].as_timeline(), indent=2), encoding="utf-8"
+            )
     finally:
+        if console is not None:
+            await console.shutdown()
         log.close()
         await surface.close()
 
@@ -304,6 +387,16 @@ def main(argv: list[str] | None = None) -> int:
     replay.add_argument("--trace", action="store_true", help="echo the run log")
     replay.add_argument(
         "--capture-steps", action="store_true", help="screenshot every step"
+    )
+    replay.add_argument(
+        "--escalate",
+        action="store_true",
+        help="run under a session lease and serve the operator console",
+    )
+    replay.add_argument("--console-port", type=int, default=8080)
+    replay.add_argument("--session", default=None, help="session id for the lease")
+    replay.add_argument(
+        "--hold-seconds", type=int, default=600, help="how long an operator hold lasts"
     )
     replay.set_defaults(func=_replay)
 

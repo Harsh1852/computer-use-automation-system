@@ -1,0 +1,25 @@
+{
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 5308,
+  "escalations": [
+    {
+      "at_step": "s4",
+      "human_steps": 4,
+      "operator_note": "signed back in after the session timed out",
+      "outcome": "released",
+      "reason": "UNRECOVERABLE",
+      "requested_at": "2026-09-19T02:16:11.123798Z",
+      "resolved_at": "2026-09-19T02:16:11.554166Z"
+    }
+  ],
+  "evidence_ref": "evidence/replay-escalation",
+  "outputs": {
+    "savings_balance": "<redacted>"
+  },
+  "recoveries": [],
+  "run_id": "run-92c6898db7",
+  "status": "success",
+  "steps_executed": 7
+}
