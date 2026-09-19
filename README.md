@@ -6,9 +6,8 @@ is recorded as a typed, versioned **capability artifact**. That artifact is then
 the executor cannot safely proceed it escalates to a human who takes control of the *same live
 browser session*, fixes the situation, and hands control back so the run resumes.
 
-> **Build status:** Phases 1–7 of 8 complete — the target application, the artifact schema, the
-> surface abstraction, deterministic replay, the discovery agent, escalation and policy. The
-> final phase adds the stretch goals and the write-up.
+**[REPORT.md](REPORT.md)** is the design write-up. **[DECISIONS.md](DECISIONS.md)** is the
+running log of every fork the design left open and the trade-off taken.
 
 ---
 
@@ -332,6 +331,137 @@ that they exist and that they are not committed.
 When enabled, a capability may declare a `reauthenticate` rule that *names the steps that sign
 on* — the executor may not guess which steps re-enter a credential. Both branches are tested
 against the live app, one flag apart.
+
+---
+
+## Demo path
+
+Everything except discovery runs with **no API key**.
+
+```bash
+cp .env.example .env          # only OPENAI_* are needed, and only for discovery
+docker compose up --build -d  # app on :5000, runtime on :8080/:8081/:6080/:6081
+make test                     # 225 tests
+```
+
+**1. Discovery — a model drives the UI once** *(needs `OPENAI_API_KEY`)*
+
+```bash
+make discover CAPID=lookup_member_balance WRITE=1 \
+  GOAL="Look up member 10001 and read their current savings balance."
+```
+
+8 tool calls, ~13s, 7 recorded steps. Evidence and the emitted artifact land in
+`evidence/discovery-lookup-balance/`.
+
+**2. Look at what it recorded**
+
+```bash
+cat evidence/discovery-lookup-balance/artifact.json
+```
+
+Credentials are `secret_ref`; the member number is a `param` — including inside the URL
+checkpoint where it reappears; every locator carries its full ladder with match counts.
+
+**3. Replay it deterministically** — no model in the loop
+
+```bash
+make replay ARTIFACT=lookup_member_balance PARAMS='{"member_id":"10001"}'
+make replay ARTIFACT=lookup_member_balance PARAMS='{"member_id":"10002"}'
+```
+
+**4. The error and outcome paths**
+
+```bash
+make replay PARAMS='{"member_id":"99999"}'            # MEMBER_NOT_FOUND, exit 0
+make replay PARAMS='{"member_id":"10003"}'            # PERMISSION_DENIED (a real 403)
+make inject FAULT=slow         && make replay         # recovered SUCCESS
+make inject FAULT=interstitial && make replay         # dismissed by a declared rule
+make inject FAULT=app_error    && make replay         # FAILURE, naming the frame
+make replay PARAMS='{"member_id":"abc"}'              # CONTRACT_VIOLATION, 0 steps
+```
+
+**5. Escalation — hand the live browser to a person**
+
+```bash
+make escalation-demo            # scripted operator, unattended
+make escalation-demo MANUAL=1   # then open http://localhost:8080 and take control
+```
+
+**6. Policy refuses what it says it refuses**
+
+```bash
+make replay ARTIFACT=tests/fixtures/reach_admin.v1.json PARAMS='{}'   # POLICY_BLOCKED
+```
+
+**7. Cross-tenant reuse**
+
+```bash
+make replay ARTIFACT=lookup_member_balance TENANT_ARGS="--tenant summit-cu" \
+  PARAMS='{"member_id":"10001"}'          # SUCCESS, via a 20-line overlay
+
+make replay ARTIFACT=lookup_member_balance TENANT_ARGS="--tenant summit-cu --no-overlay" \
+  PARAMS='{"member_id":"10001"}'          # CHECKPOINT_FAILED: Summit calls that frame `main`
+```
+
+**8. Approval is earned, not asserted**
+
+```bash
+make stability ARTIFACT=lookup_member_balance N=5 WRITE=1 \
+  PARAMS='{"member_id":"10001"}'          # 5/5 identical -> promoted to approved
+```
+
+**9. A drifted locator, and one bounded model call** *(needs `OPENAI_API_KEY`)*
+
+```bash
+make replay ARTIFACT=tests/fixtures/drifted_locator.v1.json \
+  PARAMS='{"member_id":"10001"}'          # TARGET_NOT_FOUND
+make replay ARTIFACT=tests/fixtures/drifted_locator.v1.json ASSIST=1 \
+  PARAMS='{"member_id":"10001"}'          # SUCCESS, reported as drift
+```
+
+**10. An agent discovers and calls a capability by name** *(needs `OPENAI_API_KEY`)*
+
+```bash
+make catalog       # in one shell
+make agent-demo    # in another
+```
+
+```
+USER: What is the current savings balance for member 10001?
+  -> invoking lookup_member_balance({'member_id': '10001'})
+  <- {"status": "success", "outputs": {"savings_balance": "1234.56"}}
+AGENT: The current savings balance for member 10001 is $1,234.56.
+
+USER: And for member 99999?
+  -> invoking lookup_member_balance({'member_id': '99999'})
+  <- {"status": "business_outcome", "code": "MEMBER_NOT_FOUND", ...}
+AGENT: No member exists with the number 99999 at this institution.
+```
+
+The model reports `MEMBER_NOT_FOUND` as an **answer** rather than retrying, because the
+outcome is declared in the contract and therefore in the tool description it was handed.
+
+---
+
+## Evidence
+
+| Directory | What it shows |
+|---|---|
+| `discovery-lookup-balance/` | a genuine `gpt-4.1` run: transcript, steps, screenshots, emitted artifact |
+| `discovery-open-subaccount/` | the same for a 14-step flow containing an irreversible step |
+| `discovery-policy-blocked/` | discovery stopped at CONFIRM with `RISKY_APPROVAL` |
+| `replay-success/` | the happy path, with the post-balance screenshot quarantined |
+| `replay-business-outcome/` | `MEMBER_NOT_FOUND` returned as an answer |
+| `replay-recoverable/` | a modal dismissed by a declared rule, plus an absorbed delay |
+| `replay-hard-failure/` | HTTP 500, naming the frame that errored |
+| `replay-escalation/` | the full handoff, human and machine steps interleaved |
+| `replay-policy-blocked/` | the allowlist refusing `/admin/**` |
+| `replay-overlay-summit/` | the base recording running against a second tenant |
+| `replay-assisted-fallback/` | one bounded model call rescuing a drifted locator |
+| `stability-*/` | the replays that earned `approved` |
+
+Each contains `run.jsonl`, `result.json`, `manifest.json` and `screenshots/`.
 
 ### Running the tests
 

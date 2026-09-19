@@ -10,7 +10,7 @@ from .config import (
     load_policy,
 )
 from .gate import Mode, PolicyGate
-from .redaction import SECRET_MASK, Redactor, default_redactor
+from .redaction import SECRET_MASK, Redactor, default_redactor, scrub_evidence
 
 __all__ = [
     "Allowlist",
@@ -25,4 +25,5 @@ __all__ = [
     "SECRET_MASK",
     "default_redactor",
     "load_policy",
+    "scrub_evidence",
 ]

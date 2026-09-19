@@ -150,6 +150,7 @@ class ReplayExecutor:
         detector_config: DetectorConfig | None = None,
         secrets: Mapping[str, str] | None = None,
         reauth_allowed: bool = False,
+        fallback: Any | None = None,
         verbose_capture: bool = False,
     ) -> None:
         self.surface = surface
@@ -159,6 +160,9 @@ class ReplayExecutor:
         self.detector_config = detector_config or DetectorConfig()
         self.secrets = dict(secrets) if secrets is not None else dict(os.environ)
         self.reauth_allowed = reauth_allowed
+        # None means no model anywhere in the replay path, which is the
+        # default. An assisted fallback is opt-in per run.
+        self.fallback = fallback
         self.resolver = StepResolver(surface)
         self.evaluator = ConditionEvaluator(resolve_target=self._resolve_for_condition)
         self._log = log
@@ -302,12 +306,21 @@ class ReplayExecutor:
                 if attempt < attempts:
                     await self._backoff(attempt, step, state, log, "target not yet present")
                     continue
-                await self.evidence.step_capture(self.surface, f"{step.id}-notfound", force=True)
-                self.evidence.observation_dump(observation, f"{step.id}-notfound")
-                return self._fail(
-                    capability, state, FailureKind.TARGET_NOT_FOUND, step.id,
-                    resolution.expected, resolution.observed,
-                )
+
+                # The one place a model may touch the replay path, and only
+                # after the entire recorded ladder has been exhausted.
+                assisted = await self._assisted_resolve(step, observation, state, log)
+                if assisted is not None:
+                    resolution = assisted
+                else:
+                    await self.evidence.step_capture(
+                        self.surface, f"{step.id}-notfound", force=True
+                    )
+                    self.evidence.observation_dump(observation, f"{step.id}-notfound")
+                    return self._fail(
+                        capability, state, FailureKind.TARGET_NOT_FOUND, step.id,
+                        resolution.expected, resolution.observed,
+                    )
 
             action = self._build_action(step, params)
             log.event(
@@ -618,6 +631,52 @@ class ReplayExecutor:
         log.event("reauth.completed", steps=list(step_ids))
         return True
 
+    async def _assisted_resolve(self, step, observation, state, log):
+        """One bounded model call to re-identify a single element.
+
+        Returns a resolution, or None to fail as normal. A success is still
+        reported as drift: a locator the model kept alive should appear in
+        telemetry rather than quietly work forever.
+        """
+        if self.fallback is None or not self.fallback.available:
+            return None
+
+        candidate = await self.fallback.reidentify(step, observation)
+        if candidate is None:
+            return None
+
+        matches = await self.surface.find(candidate, step.frame_path)
+        if len(matches) != 1:
+            log.event(
+                "fallback.unresolved",
+                step=step.id,
+                matched=len(matches),
+                note="the re-identified locator was not unique",
+            )
+            return None
+
+        state.drift.append(
+            DriftSignal(
+                at_step=step.id,
+                expected_strategy=step.target.recorded.winning_strategy,
+                winning_strategy=candidate.strategy,
+                matches=1,
+                note=(
+                    "resolved by assisted fallback, not by the recorded ladder; "
+                    "the artifact needs re-recording"
+                ),
+            )
+        )
+        log.event(
+            "fallback.resolved",
+            step=step.id,
+            strategy=candidate.strategy.value,
+            name=candidate.name,
+        )
+        from .resolver import Resolution
+
+        return Resolution(handle=matches[0])
+
     async def _classify_action_failure(self, result) -> FailureKind:
         """An action that would not run is not automatically a broken surface.
 
@@ -816,6 +875,9 @@ class ReplayExecutor:
                 "recoveries": len(state.recoveries),
                 "drift_signals": len(state.drift),
                 "escalations": len(state.escalations),
+                "assisted_fallback": (
+                    self.fallback.as_evidence() if self.fallback is not None else []
+                ),
                 "restricted_captures": {
                     "reason": self.evidence.restricted_reason,
                     "files": self.evidence.restricted_captures,

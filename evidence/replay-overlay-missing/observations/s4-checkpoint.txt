@@ -1,0 +1,23 @@
+url    http://app:5000/t/summit-cu/app
+title  SUMMIT CU - SERVICING CONSOLE
+status 200
+nodes  16   dialogs 0   banners 0
+
+ REF  FRAME          ROLE           NAME                                     VALUE          SRC
+-----------------------------------------------------------------------------------------------
+   0  sidebar        row            SUMMIT CU                                               text
+   1  sidebar        cell           SUMMIT CU                                               text
+   2  sidebar        row            ACCOUNT SEARCH                                          text
+   3  sidebar        link           ACCOUNT SEARCH                                          text
+   4  sidebar        row            SIGN OFF                                                text
+   5  sidebar        link           SIGN OFF                                                text
+   6  main           row            ACCOUNT SEARCH                                          text
+   7  main           cell           ACCOUNT SEARCH                                          text
+   8  main           row            ACCOUNT NUMBER                                          text
+   9  main           cell           ACCOUNT NUMBER                                          text
+  10  main           textbox                                                                none
+  11  main           button         SEARCH                                                  value
+  12  main           row            ENTER A 5-DIGIT ACCOUNT NUMBER AND PRESS                text
+  13  main           cell           ENTER A 5-DIGIT ACCOUNT NUMBER AND PRESS                text
+  14  main           row            MERIDIAN CoreBank v7.4.11 | TENANT: SUMM                text
+  15  main           cell           MERIDIAN CoreBank v7.4.11 | TENANT: SUMM                text

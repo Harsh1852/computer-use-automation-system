@@ -5,14 +5,18 @@
   "title": "Look up a member's savings balance",
   "description": "Signs on to the MERIDIAN CoreBank servicing console, searches for a member by number, and returns the CURRENT BALANCE of their savings sub-account. Read-only: no step changes state in the core.",
   "approval": {
-    "state": "draft",
-    "replays": 0,
-    "failures": 0
+    "state": "approved",
+    "replays": 5,
+    "failures": 0,
+    "last_verified": "2026-09-19T03:47:49.612501Z",
+    "approved_by": "make stability",
+    "notes": "5/5 runs succeeded with identical outputs"
   },
   "target": {
     "vendor_product": "MERIDIAN CoreBank",
     "product_version": "7.4.11",
     "tenant_id": "meridian",
+    "variant_of": null,
     "entry_point": "http://app:5000/login",
     "surface_kind": "legacy_web"
   },
@@ -45,7 +49,10 @@
       "detect": {
         "kind": "text_present",
         "text": "NO MATCHING MEMBER RECORD FOUND",
-        "frame_path": ["contentFrame"]
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
       },
       "terminal": true
     },
@@ -55,35 +62,12 @@
       "detect": {
         "kind": "text_present",
         "text": "YOU ARE NOT AUTHORIZED TO VIEW THIS RECORD",
-        "frame_path": ["contentFrame"]
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
       },
       "terminal": true
-    }
-  ],
-  "recoveries": [
-    {
-      "id": "dismiss_maintenance_notice",
-      "description": "The console interposes a maintenance banner at unpredictable times. Known, harmless, and dismissable without changing any state.",
-      "when": {
-        "kind": "text_present",
-        "text": "SYSTEM MAINTENANCE NOTICE"
-      },
-      "do": "dismiss",
-      "max_attempts": 1,
-      "target": {
-        "primary": {
-          "strategy": "a11y_role_name",
-          "role": "button",
-          "name": "DISMISS",
-          "matches_at_record": 1
-        },
-        "fallbacks": [],
-        "recorded": {
-          "winning_strategy": "a11y_role_name",
-          "candidates_seen": 1,
-          "a11y_snippet": "button \"DISMISS\" type=button"
-        }
-      }
     }
   ],
   "steps": [
@@ -92,17 +76,39 @@
       "intent": "Open the CoreBank sign-on page",
       "action": "navigate",
       "frame_path": [],
-      "value": { "literal": "http://app:5000/login" },
+      "target": null,
+      "value": {
+        "param": null,
+        "literal": "http://app:5000/login",
+        "secret_ref": null,
+        "sensitivity": "public"
+      },
+      "output": null,
       "postcondition": {
         "kind": "all_of",
         "conditions": [
-          { "kind": "url_matches", "pattern": "*/login*" },
-          { "kind": "http_ok", "at_most": 399 },
-          { "kind": "node_present", "role": "button", "name": "SIGN ON" }
+          {
+            "kind": "url_matches",
+            "pattern": "*/login*",
+            "frame_path": []
+          },
+          {
+            "kind": "http_ok",
+            "at_most": 399
+          },
+          {
+            "kind": "node_present",
+            "role": "button",
+            "name": "SIGN ON",
+            "frame_path": []
+          }
         ]
       },
       "risk": "safe_reversible",
-      "timing": { "observed_ms_p50": 180, "timeout_ms": 15000 }
+      "timing": {
+        "observed_ms_p50": 180,
+        "timeout_ms": 15000
+      }
     },
     {
       "id": "s2",
@@ -113,26 +119,53 @@
         "primary": {
           "strategy": "near_text",
           "role": "textbox",
+          "name": null,
           "anchor": "USER ID",
           "index": 0,
+          "value": null,
+          "brittle": false,
           "matches_at_record": 1
         },
         "fallbacks": [
-          { "strategy": "css", "value": "#ctl00_txtUserId", "matches_at_record": 1 }
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "#ctl00_txtUserId",
+            "brittle": true,
+            "matches_at_record": 1
+          }
         ],
         "recorded": {
           "winning_strategy": "near_text",
           "candidates_seen": 1,
+          "bbox": null,
           "a11y_snippet": "cell \"USER ID\" -> textbox (no accessible name)"
         }
       },
-      "value": { "secret_ref": "APP_USER" },
+      "value": {
+        "param": null,
+        "literal": null,
+        "secret_ref": "APP_USER",
+        "sensitivity": "secret"
+      },
+      "output": null,
       "postcondition": {
         "kind": "value_equals",
-        "expected": { "secret_ref": "APP_USER" }
+        "expected": {
+          "param": null,
+          "literal": null,
+          "secret_ref": "APP_USER",
+          "sensitivity": "secret"
+        }
       },
       "risk": "safe_reversible",
-      "timing": { "observed_ms_p50": 40, "timeout_ms": 5000 }
+      "timing": {
+        "observed_ms_p50": 40,
+        "timeout_ms": 5000
+      }
     },
     {
       "id": "s3",
@@ -143,26 +176,53 @@
         "primary": {
           "strategy": "near_text",
           "role": "textbox",
+          "name": null,
           "anchor": "PASSWORD",
           "index": 0,
+          "value": null,
+          "brittle": false,
           "matches_at_record": 1
         },
         "fallbacks": [
-          { "strategy": "css", "value": "#ctl00_txtPassword", "matches_at_record": 1 }
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "#ctl00_txtPassword",
+            "brittle": true,
+            "matches_at_record": 1
+          }
         ],
         "recorded": {
           "winning_strategy": "near_text",
           "candidates_seen": 1,
+          "bbox": null,
           "a11y_snippet": "cell \"PASSWORD\" -> textbox (no accessible name)"
         }
       },
-      "value": { "secret_ref": "APP_PASSWORD" },
+      "value": {
+        "param": null,
+        "literal": null,
+        "secret_ref": "APP_PASSWORD",
+        "sensitivity": "secret"
+      },
+      "output": null,
       "postcondition": {
         "kind": "value_equals",
-        "expected": { "secret_ref": "APP_PASSWORD" }
+        "expected": {
+          "param": null,
+          "literal": null,
+          "secret_ref": "APP_PASSWORD",
+          "sensitivity": "secret"
+        }
       },
       "risk": "safe_reversible",
-      "timing": { "observed_ms_p50": 40, "timeout_ms": 5000 }
+      "timing": {
+        "observed_ms_p50": 40,
+        "timeout_ms": 5000
+      }
     },
     {
       "id": "s4",
@@ -174,143 +234,269 @@
           "strategy": "a11y_role_name",
           "role": "button",
           "name": "SIGN ON",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
           "matches_at_record": 1
         },
         "fallbacks": [
-          { "strategy": "css", "value": "#ctl00_btnSignOn", "matches_at_record": 1 }
+          {
+            "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
+            "value": "#ctl00_btnSignOn",
+            "brittle": true,
+            "matches_at_record": 1
+          }
         ],
         "recorded": {
           "winning_strategy": "a11y_role_name",
           "candidates_seen": 1,
+          "bbox": null,
           "a11y_snippet": "button \"SIGN ON\" type=submit"
         }
       },
+      "value": null,
+      "output": null,
       "postcondition": {
         "kind": "all_of",
         "conditions": [
-          { "kind": "url_matches", "pattern": "*/app" },
+          {
+            "kind": "url_matches",
+            "pattern": "*/app",
+            "frame_path": []
+          },
           {
             "kind": "node_present",
             "role": "button",
             "name": "SEARCH",
-            "frame_path": ["contentFrame"]
+            "frame_path": [
+              "contentFrame"
+            ]
           }
         ]
       },
       "risk": "state_changing",
-      "timing": { "observed_ms_p50": 250, "timeout_ms": 25000 }
+      "timing": {
+        "observed_ms_p50": 250,
+        "timeout_ms": 25000
+      }
     },
     {
       "id": "s5",
       "intent": "Type the member number into the MEMBER NUMBER field",
       "action": "type",
-      "frame_path": ["contentFrame"],
+      "frame_path": [
+        "contentFrame"
+      ],
       "target": {
         "primary": {
           "strategy": "a11y_role_name",
           "role": "textbox",
           "name": "MEMBER NUMBER",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
           "matches_at_record": 0
         },
         "fallbacks": [
           {
             "strategy": "near_text",
             "role": "textbox",
+            "name": null,
             "anchor": "MEMBER NUMBER",
             "index": 0,
+            "value": null,
+            "brittle": false,
             "matches_at_record": 1
           },
           {
             "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
             "value": "#ctl00_ContentPlaceHolder1_txtMbrNo",
+            "brittle": true,
             "matches_at_record": 1
           }
         ],
         "recorded": {
           "winning_strategy": "near_text",
           "candidates_seen": 1,
+          "bbox": null,
           "a11y_snippet": "cell \"MEMBER NUMBER\" -> textbox (no accessible name)"
         }
       },
-      "value": { "param": "member_id" },
+      "value": {
+        "param": "member_id",
+        "literal": null,
+        "secret_ref": null,
+        "sensitivity": "public"
+      },
+      "output": null,
       "postcondition": {
         "kind": "value_equals",
-        "expected": { "param": "member_id" }
+        "expected": {
+          "param": "member_id",
+          "literal": null,
+          "secret_ref": null,
+          "sensitivity": "public"
+        }
       },
       "risk": "safe_reversible",
-      "timing": { "observed_ms_p50": 45, "timeout_ms": 5000 }
+      "timing": {
+        "observed_ms_p50": 45,
+        "timeout_ms": 5000
+      }
     },
     {
       "id": "s6",
       "intent": "Run the member search",
       "action": "click",
-      "frame_path": ["contentFrame"],
+      "frame_path": [
+        "contentFrame"
+      ],
       "target": {
         "primary": {
           "strategy": "a11y_role_name",
           "role": "button",
           "name": "SEARCH",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
           "matches_at_record": 1
         },
         "fallbacks": [
           {
             "strategy": "css",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
             "value": "#ctl00_ContentPlaceHolder1_btnSearch",
+            "brittle": true,
             "matches_at_record": 1
           }
         ],
         "recorded": {
           "winning_strategy": "a11y_role_name",
           "candidates_seen": 1,
+          "bbox": null,
           "a11y_snippet": "button \"SEARCH\" type=submit"
         }
       },
+      "value": null,
+      "output": null,
       "postcondition": {
         "kind": "url_matches",
         "pattern": "*/members/detail?mbr={member_id}",
-        "frame_path": ["contentFrame"]
+        "frame_path": [
+          "contentFrame"
+        ]
       },
       "risk": "safe_reversible",
-      "timing": { "observed_ms_p50": 260, "timeout_ms": 25000 }
+      "timing": {
+        "observed_ms_p50": 260,
+        "timeout_ms": 25000
+      }
     },
     {
       "id": "s7",
       "intent": "Read the CURRENT BALANCE cell of the SAVINGS row",
       "action": "read",
-      "frame_path": ["contentFrame"],
+      "frame_path": [
+        "contentFrame"
+      ],
       "target": {
         "primary": {
           "strategy": "near_text",
           "role": "cell",
+          "name": null,
           "anchor": "SAVINGS",
           "index": 3,
+          "value": null,
+          "brittle": false,
           "matches_at_record": 1
         },
         "fallbacks": [
           {
             "strategy": "xpath",
+            "role": null,
+            "name": null,
+            "anchor": null,
+            "index": null,
             "value": "//tr[td[normalize-space()='SAVINGS']]/td[4]",
+            "brittle": true,
             "matches_at_record": 1
           }
         ],
         "recorded": {
           "winning_strategy": "near_text",
           "candidates_seen": 1,
+          "bbox": null,
           "a11y_snippet": "row \"SAVINGS 10001-S01 PRIMARY SHARE 1,234.56\" -> cell[3]"
         }
       },
+      "value": null,
       "output": {
         "name": "savings_balance",
         "extract": "text",
+        "pattern": null,
         "transform": "money"
       },
       "postcondition": {
         "kind": "text_present",
         "text": "CURRENT BALANCE",
-        "frame_path": ["contentFrame"]
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
       },
       "risk": "safe_reversible",
-      "timing": { "observed_ms_p50": 30, "timeout_ms": 5000 }
+      "timing": {
+        "observed_ms_p50": 30,
+        "timeout_ms": 5000
+      }
+    }
+  ],
+  "recoveries": [
+    {
+      "id": "dismiss_maintenance_notice",
+      "when": {
+        "kind": "text_present",
+        "text": "SYSTEM MAINTENANCE NOTICE",
+        "frame_path": [],
+        "case_sensitive": false
+      },
+      "do": "dismiss",
+      "target": {
+        "primary": {
+          "strategy": "a11y_role_name",
+          "role": "button",
+          "name": "DISMISS",
+          "anchor": null,
+          "index": null,
+          "value": null,
+          "brittle": false,
+          "matches_at_record": 1
+        },
+        "fallbacks": [],
+        "recorded": {
+          "winning_strategy": "a11y_role_name",
+          "candidates_seen": 1,
+          "bbox": null,
+          "a11y_snippet": "button \"DISMISS\" type=button"
+        }
+      },
+      "steps": [],
+      "max_attempts": 1,
+      "description": "The console interposes a maintenance banner at unpredictable times. Known, harmless, and dismissable without changing any state."
     }
   ],
   "success_condition": {
@@ -319,12 +505,17 @@
       {
         "kind": "url_matches",
         "pattern": "*/members/detail?mbr={member_id}",
-        "frame_path": ["contentFrame"]
+        "frame_path": [
+          "contentFrame"
+        ]
       },
       {
         "kind": "text_present",
         "text": "CURRENT BALANCE",
-        "frame_path": ["contentFrame"]
+        "frame_path": [
+          "contentFrame"
+        ],
+        "case_sensitive": false
       }
     ]
   },

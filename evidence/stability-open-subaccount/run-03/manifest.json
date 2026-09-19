@@ -1,0 +1,61 @@
+{
+  "assisted_fallback": [],
+  "capability": {
+    "approval": "draft",
+    "id": "open_subaccount",
+    "schema_version": "1.0",
+    "version": "1.0.0"
+  },
+  "drift_signals": 0,
+  "environment": {
+    "app_url": "http://app:5000",
+    "git_sha": null,
+    "model": "gpt-4.1",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "escalations": 0,
+  "params": {
+    "funding_source_account": "10001-C01",
+    "initial_deposit": "55.00",
+    "member_number": "10001",
+    "nickname": "VERIFY",
+    "sub_account_type": "SAVINGS"
+  },
+  "recoveries": 4,
+  "restricted_captures": {
+    "committed": false,
+    "files": [],
+    "reason": "output 'new_account_number' is pii"
+  },
+  "run_id": "run-68d239ce2b",
+  "status": "success",
+  "target": {
+    "entry_point": "http://app:5000/login",
+    "product_version": "7.4.11",
+    "surface_kind": "legacy_web",
+    "tenant_id": "meridian",
+    "vendor_product": "MERIDIAN CoreBank"
+  },
+  "timings": {
+    "duration_ms": 11861,
+    "finished_at": "2026-09-19T03:49:50.969395+00:00",
+    "started_at": "2026-09-19T03:49:39.107618+00:00",
+    "steps_ms": {
+      "s1": 409,
+      "s10": 1136,
+      "s11": 1083,
+      "s12": 866,
+      "s13": 835,
+      "s14": 783,
+      "s2": 456,
+      "s3": 433,
+      "s4": 653,
+      "s5": 1123,
+      "s6": 968,
+      "s7": 908,
+      "s8": 1012,
+      "s9": 973
+    }
+  }
+}

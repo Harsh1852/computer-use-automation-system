@@ -1,0 +1,60 @@
+{
+  "capability_id": "drifted_locator",
+  "capability_version": "1.0.0",
+  "drift": [
+    {
+      "at_step": "s6",
+      "expected_strategy": "a11y_role_name",
+      "matches": 1,
+      "note": "resolved by assisted fallback, not by the recorded ladder; the artifact needs re-recording",
+      "winning_strategy": "a11y_role_name"
+    }
+  ],
+  "duration_ms": 9087,
+  "escalations": [],
+  "evidence_ref": "evidence/replay-assisted-fallback",
+  "outputs": {
+    "savings_balance": "<redacted>"
+  },
+  "recoveries": [
+    {
+      "action": "extended_wait",
+      "at_step": "s5",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1108,
+      "note": "step took 1108ms against a recorded p50 of 45ms (threshold 1000ms)",
+      "rule_id": null
+    },
+    {
+      "action": "retry_step",
+      "at_step": "s6",
+      "attempt": 1,
+      "condition": "TransientFailure",
+      "duration_ms": 400,
+      "note": "target not yet present",
+      "rule_id": null
+    },
+    {
+      "action": "retry_step",
+      "at_step": "s6",
+      "attempt": 2,
+      "condition": "TransientFailure",
+      "duration_ms": 1200,
+      "note": "target not yet present",
+      "rule_id": null
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s6",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 4688,
+      "note": "step took 4688ms against a recorded p50 of 260ms (threshold 1000ms)",
+      "rule_id": null
+    }
+  ],
+  "run_id": "run-b8031ecf12",
+  "status": "success",
+  "steps_executed": 7
+}

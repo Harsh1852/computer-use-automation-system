@@ -5,12 +5,12 @@
   "title": "Opened a new SAVINGS sub-account nicknamed VACATION for member 10001 with an initial deposit of $50.00 funded from their",
   "description": "Opened a new SAVINGS sub-account nicknamed VACATION for member 10001 with an initial deposit of $50.00 funded from their existing checking account, and confirmed the new account number.",
   "approval": {
-    "state": "draft",
-    "replays": 0,
+    "state": "approved",
+    "replays": 6,
     "failures": 0,
-    "last_verified": null,
-    "approved_by": null,
-    "notes": null
+    "last_verified": "2026-09-19T03:49:51.071485Z",
+    "approved_by": "make stability SUPERVISED=1",
+    "notes": "3/3 runs succeeded; every run returned all of ['new_account_number'] (values differ, as they must for a capability that creates)"
   },
   "target": {
     "vendor_product": "MERIDIAN CoreBank",
@@ -991,6 +991,7 @@
           "a11y_snippet": null
         }
       },
+      "steps": [],
       "max_attempts": 1,
       "description": "The console interposes a maintenance banner at unpredictable times. Known, harmless, dismissable without changing state."
     }

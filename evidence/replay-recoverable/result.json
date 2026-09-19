@@ -2,7 +2,7 @@
   "capability_id": "lookup_member_balance",
   "capability_version": "1.0.0",
   "drift": [],
-  "duration_ms": 10145,
+  "duration_ms": 7267,
   "escalations": [],
   "evidence_ref": "evidence/replay-recoverable",
   "outputs": {
@@ -10,16 +10,25 @@
   },
   "recoveries": [
     {
-      "action": "extended_wait",
+      "action": "dismiss",
       "at_step": "s4",
       "attempt": 1,
+      "condition": "text_present 'SYSTEM MAINTENANCE NOTICE'",
+      "duration_ms": 76,
+      "note": "dismissed via button 'DISMISS'",
+      "rule_id": "dismiss_maintenance_notice"
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s5",
+      "attempt": 1,
       "condition": "SlowResponse",
-      "duration_ms": 6594,
-      "note": "step took 6594ms against a recorded p50 of 250ms (threshold 1000ms)",
+      "duration_ms": 1099,
+      "note": "step took 1099ms against a recorded p50 of 45ms (threshold 1000ms)",
       "rule_id": null
     }
   ],
-  "run_id": "run-e0b1196997",
+  "run_id": "run-c8975e31bd",
   "status": "success",
   "steps_executed": 7
 }

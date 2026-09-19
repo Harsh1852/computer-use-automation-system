@@ -409,3 +409,60 @@ and an account opened by mistake cannot be un-opened. Replay may, because a
 human has already reviewed exactly which step is irreversible - but only once
 the artifact has earned approval. Today open_subaccount is a draft, so
 replaying it runs twelve steps, reaches the review screen, and stops.
+
+## Phase 8 - stretch goals, evidence, write-up
+
+Four stretch goals against a brief that caps them at "one or two". The
+justification is in REPORT.md section 7 and is not hand-waving: each is a
+projection of something the core already had, not a new subsystem. If it
+still reads as breadth, the two to keep are overlays and approval.
+
+- **Overlays may rename, remap and insert an input; they may not change the
+  flow.** No step removed, reordered, re-verbed, or raised in risk - and the
+  line is enforced by a validator, not described in a comment. An override
+  that could quietly turn a read into a confirmation would make "the same
+  capability, adapted" a claim nobody could trust. Anything beyond the line
+  forks with an explicit `variant_of`.
+- **The registry refuses a tenant with no overlay** rather than falling back
+  to the base recording. Running one tenant's locators against another is how
+  automation types into the wrong field and calls it success.
+- **Stability measures agreement with the modal answer, not the success
+  rate.** A capability asked about a member who does not exist should return
+  MEMBER_NOT_FOUND every time; that is perfectly stable and not a reason to
+  approve it. Approval additionally requires the modal outcome to be success.
+- **Output determinism is required of readers, not of creators.** First
+  version demanded identical outputs and therefore refused to approve
+  `open_subaccount` - correctly by its own rule, wrongly in substance, since
+  a new account number is supposed to be new. A capability with an
+  irreversible step must instead return every declared output on every run.
+- **An irreversible capability cannot bootstrap its own approval**, because
+  policy blocks the irreversible step while it is a draft. Breaking that
+  circle is a human decision, so it is an explicit `--supervised` flag on the
+  stability command rather than a silent exception in the gate.
+- **The assisted fallback is bounded four ways**: TARGET_NOT_FOUND only, once
+  per run, only a ref from the observation it was shown, and the resulting
+  action still passes the gate. A success is *still reported as drift* saying
+  the artifact needs re-recording, so a locator the model keeps alive shows up
+  in telemetry instead of quietly working forever.
+- **The fallback's first prompt was wrong and the model was right to refuse.**
+  It said "answer -1 unless you are confident" without telling the model that
+  a changed name is the expected situation - which is the entire premise. The
+  model declined, correctly, and the fix was the prompt.
+- **Tool descriptions carry the declared outcomes.** A calling model that does
+  not know MEMBER_NOT_FOUND is possible treats it as a failure and retries,
+  which is the exact conflation the result contract exists to prevent. The
+  agent demo shows it reporting the outcome as an answer.
+- **Every invoke arm returns HTTP 200.** Making a caller distinguish "no such
+  member" from a transport failure by status code pushes that conflation back
+  onto them.
+- **Redaction at the log sink was not the whole sink.** Found by the secret
+  sweep: observation dumps print each node's *value*, so the accessibility
+  snapshot taken right after a credential is typed contained it, and reached
+  disk without passing the log processor. Every evidence write path now goes
+  through `scrub_evidence`.
+- **`make` is not installed on the machine this was built on.** Every demo was
+  run as its underlying `docker compose` command; the Makefile targets were
+  verified by expanding all seventeen with `make -n` in a container. That
+  caught a real bug - `TENANT_ARGS` and `ASSIST` were silently dropped from
+  the replay recipe - but "expands correctly" is weaker than "was executed",
+  and it is worth knowing which one this is.

@@ -79,7 +79,9 @@ class EvidenceWriter:
         path = self.run_dir / "observations"
         path.mkdir(parents=True, exist_ok=True)
         file = path / f"{label}.txt"
-        file.write_text(render_table(observation), encoding="utf-8")
+        from ..policy.redaction import scrub_evidence
+
+        file.write_text(scrub_evidence(render_table(observation)), encoding="utf-8")
         return str(file.relative_to(self.run_dir))
 
     def write_result(

@@ -84,8 +84,11 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /work
 
+# FastAPI is here but Playwright deliberately is not: the point of this image
+# is that everything above the surface seam runs with no browser driver at all.
 RUN uv pip install --system --no-cache \
       "pydantic>=2.7" "structlog>=24.1" "pyyaml>=6.0" \
+      "fastapi>=0.111" "httpx>=0.27" \
       "pytest>=8" "pytest-asyncio>=0.23" "jsonschema>=4.22"
 
 COPY . /work

@@ -1,0 +1,43 @@
+{
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 6720,
+  "escalations": [],
+  "evidence_ref": "evidence/invoke-lookup_member_balance-1789789853-9c7239",
+  "outputs": {
+    "savings_balance": "<redacted>"
+  },
+  "recoveries": [
+    {
+      "action": "extended_wait",
+      "at_step": "s5",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1505,
+      "note": "step took 1505ms against a recorded p50 of 45ms (threshold 1000ms)",
+      "rule_id": null
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s6",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1186,
+      "note": "step took 1186ms against a recorded p50 of 260ms (threshold 1000ms)",
+      "rule_id": null
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s7",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1147,
+      "note": "step took 1147ms against a recorded p50 of 30ms (threshold 1000ms)",
+      "rule_id": null
+    }
+  ],
+  "run_id": "run-bc92235802",
+  "status": "success",
+  "steps_executed": 7
+}

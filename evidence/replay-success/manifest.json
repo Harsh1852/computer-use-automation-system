@@ -1,6 +1,7 @@
 {
+  "assisted_fallback": [],
   "capability": {
-    "approval": "draft",
+    "approval": "approved",
     "id": "lookup_member_balance",
     "schema_version": "1.0",
     "version": "1.0.0"
@@ -17,7 +18,7 @@
   "params": {
     "member_id": "10001"
   },
-  "recoveries": 0,
+  "recoveries": 1,
   "restricted_captures": {
     "committed": false,
     "files": [
@@ -25,7 +26,7 @@
     ],
     "reason": "output 'savings_balance' is pii"
   },
-  "run_id": "run-60a0fd49fd",
+  "run_id": "run-ba3e340660",
   "status": "success",
   "target": {
     "entry_point": "http://app:5000/login",
@@ -35,17 +36,17 @@
     "vendor_product": "MERIDIAN CoreBank"
   },
   "timings": {
-    "duration_ms": 6038,
-    "finished_at": "2026-09-19T03:25:26.613391+00:00",
-    "started_at": "2026-09-19T03:25:20.574931+00:00",
+    "duration_ms": 6969,
+    "finished_at": "2026-09-19T03:57:28.284503+00:00",
+    "started_at": "2026-09-19T03:57:21.315020+00:00",
     "steps_ms": {
-      "s1": 392,
-      "s2": 395,
-      "s3": 395,
-      "s4": 562,
-      "s5": 923,
-      "s6": 779,
-      "s7": 713
+      "s1": 444,
+      "s2": 463,
+      "s3": 455,
+      "s4": 657,
+      "s5": 1081,
+      "s6": 876,
+      "s7": 841
     }
   }
 }

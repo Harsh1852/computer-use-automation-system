@@ -1,0 +1,61 @@
+{
+  "capability_id": "open_subaccount",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 12086,
+  "escalations": [],
+  "evidence_ref": "evidence/stability-open-subaccount/run-02",
+  "outputs": {
+    "new_account_number": "<redacted>"
+  },
+  "recoveries": [
+    {
+      "action": "extended_wait",
+      "at_step": "s5",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1066,
+      "note": "step took 1066ms against a recorded p50 of 18ms (threshold 1000ms)",
+      "rule_id": null
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s8",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1122,
+      "note": "step took 1122ms against a recorded p50 of 19ms (threshold 1000ms)",
+      "rule_id": null
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s9",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1119,
+      "note": "step took 1119ms against a recorded p50 of 14ms (threshold 1000ms)",
+      "rule_id": null
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s10",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1187,
+      "note": "step took 1187ms against a recorded p50 of 13ms (threshold 1000ms)",
+      "rule_id": null
+    },
+    {
+      "action": "extended_wait",
+      "at_step": "s11",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1103,
+      "note": "step took 1103ms against a recorded p50 of 12ms (threshold 1000ms)",
+      "rule_id": null
+    }
+  ],
+  "run_id": "run-784a2ecd64",
+  "status": "success",
+  "steps_executed": 14
+}

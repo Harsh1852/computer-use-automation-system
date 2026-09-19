@@ -1,0 +1,25 @@
+{
+  "at_step": "s6",
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "code": "MEMBER_NOT_FOUND",
+  "drift": [],
+  "duration_ms": 5481,
+  "evidence_ref": "evidence/invoke-lookup_member_balance-1789789862-56b626",
+  "message": "No member exists with that number at this institution.",
+  "recoveries": [
+    {
+      "action": "extended_wait",
+      "at_step": "s5",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1507,
+      "note": "step took 1507ms against a recorded p50 of 45ms (threshold 1000ms)",
+      "rule_id": null
+    }
+  ],
+  "run_id": "run-3a67bccc01",
+  "status": "business_outcome",
+  "steps_executed": 5,
+  "terminal": true
+}

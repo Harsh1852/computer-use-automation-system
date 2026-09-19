@@ -598,7 +598,11 @@ class WebPlaywrightSurface:
 
             observation = await self.observe()
             tree = trees / f"{label}.txt"
-            tree.write_text(render_table(observation), encoding="utf-8")
+            # An observation prints each node's value, so a snapshot taken
+            # just after a credential is typed contains it.
+            from ..policy.redaction import scrub_evidence
+
+            tree.write_text(scrub_evidence(render_table(observation)), encoding="utf-8")
             a11y_ref = str(tree.relative_to(self._run_dir))
 
         return Snapshot(

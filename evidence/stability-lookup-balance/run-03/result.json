@@ -1,0 +1,25 @@
+{
+  "capability_id": "lookup_member_balance",
+  "capability_version": "1.0.0",
+  "drift": [],
+  "duration_ms": 4723,
+  "escalations": [],
+  "evidence_ref": "evidence/stability-lookup-balance/run-03",
+  "outputs": {
+    "savings_balance": "<redacted>"
+  },
+  "recoveries": [
+    {
+      "action": "extended_wait",
+      "at_step": "s5",
+      "attempt": 1,
+      "condition": "SlowResponse",
+      "duration_ms": 1081,
+      "note": "step took 1081ms against a recorded p50 of 45ms (threshold 1000ms)",
+      "rule_id": null
+    }
+  ],
+  "run_id": "run-49bf5b2dee",
+  "status": "success",
+  "steps_executed": 7
+}

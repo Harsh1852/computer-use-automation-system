@@ -1,0 +1,50 @@
+{
+  "assisted_fallback": [],
+  "capability": {
+    "approval": "draft",
+    "id": "lookup_member_balance",
+    "schema_version": "1.0",
+    "version": "1.0.0"
+  },
+  "drift_signals": 0,
+  "environment": {
+    "app_url": "http://app:5000",
+    "git_sha": null,
+    "model": "gpt-4.1",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "escalations": 0,
+  "params": {
+    "member_id": "10001"
+  },
+  "recoveries": 1,
+  "restricted_captures": {
+    "committed": false,
+    "files": [],
+    "reason": "output 'savings_balance' is pii"
+  },
+  "run_id": "run-ed8e873d0c",
+  "status": "success",
+  "target": {
+    "entry_point": "http://app:5000/login",
+    "product_version": "7.4.11",
+    "surface_kind": "legacy_web",
+    "tenant_id": "meridian",
+    "vendor_product": "MERIDIAN CoreBank"
+  },
+  "timings": {
+    "duration_ms": 5081,
+    "finished_at": "2026-09-19T03:47:49.516520+00:00",
+    "started_at": "2026-09-19T03:47:44.434535+00:00",
+    "steps_ms": {
+      "s1": 394,
+      "s2": 482,
+      "s3": 430,
+      "s4": 658,
+      "s5": 1147,
+      "s6": 876,
+      "s7": 850
+    }
+  }
+}

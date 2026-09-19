@@ -107,9 +107,17 @@ async def test_a_permitted_capability_is_unaffected_by_the_gate(run):
 async def test_a_draft_capability_stops_before_its_irreversible_step(run):
     """The sub-account capability reaches the review screen and no further,
     because nobody has approved it yet."""
-    capability = load("artifacts/open_subaccount.v1.json")
-    assert capability.approval.state is ApprovalState.DRAFT
-    assert capability.has_irreversible_step
+    # Built as a draft here rather than relying on the shipped artifact's
+    # approval state, which `make stability` legitimately changes.
+    shipped = load("artifacts/open_subaccount.v1.json")
+    assert shipped.has_irreversible_step
+    capability = shipped.model_copy(
+        update={
+            "approval": shipped.approval.model_copy(
+                update={"state": ApprovalState.DRAFT, "approved_by": None}
+            )
+        }
+    )
 
     result, _ = await run(
         capability,
@@ -120,6 +128,7 @@ async def test_a_draft_capability_stops_before_its_irreversible_step(run):
             "initial_deposit": "60.00",
             "funding_source_account": "10001-C01",
         },
+        gate=PolicyGate(mode=Mode.REPLAY, artifact_approved=False),
     )
 
     assert isinstance(result, Failure), result

@@ -39,6 +39,7 @@ services:
       - "8080:8080"
       - "6080:6080"
       - "6081:6081"
+      - "8081:8081"
     volumes:
       - ./src:/work/src:ro
       - ./tests:/work/tests:ro

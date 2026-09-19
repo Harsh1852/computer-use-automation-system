@@ -188,13 +188,133 @@ async def _serve_console(escalation, port: int):
     return server
 
 
+def _resolve_capability(args):
+    """Base recording, or the tenant's variant of it.
+
+    `--tenant` goes through the registry, which applies an overlay when one
+    exists and refuses when one does not. `--no-overlay` deliberately skips
+    the overlay while still pointing at the tenant: it exists to demonstrate
+    what happens without one, which is a locator failure rather than a
+    silently wrong run.
+    """
+    from .catalog import CapabilityRegistry, Overlay
+    from .schema import Capability
+
+    path = find_artifact(args.artifact)
+    capability = Capability.model_validate_json(path.read_text(encoding="utf-8"))
+
+    tenant = getattr(args, "tenant", None)
+    if not tenant or tenant == capability.target.tenant_id:
+        return capability
+
+    if getattr(args, "no_overlay", False):
+        # The naive reuse attempt: point the same recording at the other
+        # tenant's URLs and hope. Routing is applied so the run genuinely
+        # goes there; the locator renames deliberately are not, which is the
+        # whole question being asked.
+        from .catalog import apply_overlay
+
+        overlay = Overlay.for_tenant(tenant)
+        if overlay is None:
+            raise SystemExit(f"no overlay exists for {tenant!r} to strip")
+        routing_only = overlay.model_copy(
+            update={
+                "frame_map": {},
+                "anchor_map": {},
+                "name_map": {},
+                "inserted_steps": [],
+                "value_overrides": {},
+            }
+        )
+        print(
+            f"pointing the {capability.target.tenant_id} recording at {tenant} "
+            "with routing only - no locator overrides"
+        )
+        return apply_overlay(capability, routing_only)
+
+    resolved = CapabilityRegistry().get(capability.id, tenant)
+    if resolved is None:
+        raise SystemExit(
+            f"no variant of {capability.id!r} for tenant {tenant!r}. "
+            "Add an overlay, or fork the capability with an explicit variant_of."
+        )
+    print(f"applied the {tenant} overlay to {capability.id}")
+    return resolved
+
+
+async def _stability(args: argparse.Namespace) -> int:
+    """Replay N times, score the agreement, and promote if it earns it."""
+    from .catalog import CapabilityRegistry, StabilityReport, promote
+    from .catalog.api import replay_runner
+    from .schema import Capability
+
+    path = find_artifact(args.artifact)
+    capability = Capability.model_validate_json(path.read_text(encoding="utf-8"))
+    params = json.loads(args.params) if args.params else {}
+
+    report = StabilityReport(
+        capability_id=capability.id,
+        capability_version=capability.version,
+        declared_outputs=[f.name for f in capability.contract.outputs],
+        creates_something=capability.has_irreversible_step,
+    )
+    for index in range(args.n):
+        run_dir = f"{args.evidence}/run-{index + 1:02d}" if args.evidence else (
+            f"evidence/stability-{capability.id}/run-{index + 1:02d}"
+        )
+        result = await replay_runner(
+            capability, params, run_dir,
+            approved=True if args.supervised else None,
+        )
+        report.record(result)
+        print(f"  run {index + 1:>2}/{args.n}  {result.status:<17} {result.duration_ms:>6}ms")
+
+    print()
+    print(json.dumps(report.summary(), indent=2))
+
+    updated, ok, reason = promote(
+        capability,
+        report,
+        threshold=args.threshold,
+        min_runs=args.min_runs,
+        approved_by=(
+            "make stability SUPERVISED=1" if args.supervised else "make stability"
+        ),
+    )
+    print()
+    print(f"approval  {updated.approval.state.value.upper()}  -  {reason}")
+    if args.write:
+        written = CapabilityRegistry().save(updated)
+        print(f"written   {written}")
+    return 0 if ok else 1
+
+
+async def _catalog(args: argparse.Namespace) -> int:
+    """Serve the capability catalog an AI agent talks to."""
+    import uvicorn
+
+    from .catalog import CapabilityRegistry, create_catalog_app
+    from .catalog.api import replay_runner
+
+    registry = CapabilityRegistry()
+    app = create_catalog_app(registry, runner=replay_runner)
+    print(f"capability catalog  http://localhost:{args.port}/capabilities")
+    for capability in registry.all():
+        print(
+            f"  {capability.id:<28} {capability.approval.state.value:<9} "
+            f"tenants={CapabilityRegistry().tenants_for(capability.id)}"
+        )
+    config = uvicorn.Config(app, host="0.0.0.0", port=args.port, log_level="warning")
+    await uvicorn.Server(config).serve()
+    return 0
+
+
 async def _replay(args: argparse.Namespace) -> int:
     from .evidence import RunLog
     from .replay import ReplayExecutor
     from .schema import Capability
 
-    path = find_artifact(args.artifact)
-    capability = Capability.model_validate_json(path.read_text(encoding="utf-8"))
+    capability = _resolve_capability(args)
     params = json.loads(args.params) if args.params else {}
 
     run_dir = args.evidence or f"evidence/replay-{int(time.time())}"
@@ -202,6 +322,12 @@ async def _replay(args: argparse.Namespace) -> int:
 
     from .policy import Mode, PolicyGate
     from .schema import ApprovalState
+
+    fallback = None
+    if args.assist:
+        from .replay import AssistedFallback
+
+        fallback = AssistedFallback(log=None)
 
     gate = PolicyGate(
         mode=Mode.REPLAY,
@@ -230,12 +356,15 @@ async def _replay(args: argparse.Namespace) -> int:
             print(f"operator console  http://localhost:{args.console_port}")
             print(f"session           {session_id}")
             print()
+        if fallback is not None:
+            fallback.log = log
         executor = ReplayExecutor(
             surface,
             run_dir=run_dir,
             log=log,
             escalator=escalator,
             reauth_allowed=gate.reauth_allowed,
+            fallback=fallback,
             verbose_capture=args.capture_steps,
         )
         result = await executor.run(capability, params)
@@ -410,6 +539,17 @@ def main(argv: list[str] | None = None) -> int:
     replay.add_argument(
         "--hold-seconds", type=int, default=600, help="how long an operator hold lasts"
     )
+    replay.add_argument("--tenant", default=None, help="resolve the tenant's variant")
+    replay.add_argument(
+        "--no-overlay",
+        action="store_true",
+        help="run the base recording against the tenant anyway, to show the difference",
+    )
+    replay.add_argument(
+        "--assist",
+        action="store_true",
+        help="allow one bounded model call to re-identify a single lost element",
+    )
     replay.set_defaults(func=_replay)
 
     discover = sub.add_parser("discover", help="run the LLM agent against a goal")
@@ -434,6 +574,32 @@ def main(argv: list[str] | None = None) -> int:
         "--write-artifact", action="store_true", help="also install into artifacts/"
     )
     discover.set_defaults(func=_discover)
+
+    stability = sub.add_parser("stability", help="replay N times and score determinism")
+    stability.add_argument("--artifact", required=True)
+    stability.add_argument("--params", default="{}")
+    stability.add_argument("--n", type=int, default=5)
+    stability.add_argument("--threshold", type=float, default=0.9)
+    stability.add_argument("--min-runs", type=int, default=3)
+    stability.add_argument("--evidence", default=None)
+    stability.add_argument(
+        "--write", action="store_true", help="write the approval state back"
+    )
+    stability.add_argument(
+        "--supervised",
+        action="store_true",
+        help=(
+            "allow irreversible steps during verification. A capability whose "
+            "point is an irreversible action cannot earn approval by replaying, "
+            "because policy blocks that step while it is a draft; breaking that "
+            "circle is a human decision, so it is an explicit flag"
+        ),
+    )
+    stability.set_defaults(func=_stability)
+
+    catalog = sub.add_parser("catalog", help="serve the agent-facing capability catalog")
+    catalog.add_argument("--port", type=int, default=8081)
+    catalog.set_defaults(func=_catalog)
 
     args = parser.parse_args(argv)
     return asyncio.run(args.func(args))

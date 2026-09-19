@@ -1,0 +1,22 @@
+{
+  "overlay_version": "1.0",
+  "capability_id": "lookup_member_balance",
+  "tenant_id": "summit-cu",
+  "description": "Summit Credit Union runs the same MERIDIAN CoreBank 7.4.11 build with its own branding. Nothing about the flow differs: the same screens in the same order, with different names for the same controls and a tenant path prefix. Locator names and routes only - no step added, removed or reordered.",
+
+  "entry_point": "http://app:5000/t/summit-cu/login",
+  "url_prefix": "/t/summit-cu",
+
+  "frame_map": {
+    "navFrame": "sidebar",
+    "contentFrame": "main"
+  },
+
+  "anchor_map": {
+    "MEMBER NUMBER": "ACCOUNT NUMBER"
+  },
+
+  "name_map": {
+    "MEMBER NUMBER": "ACCOUNT NUMBER"
+  }
+}

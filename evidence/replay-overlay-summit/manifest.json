@@ -1,0 +1,50 @@
+{
+  "assisted_fallback": [],
+  "capability": {
+    "approval": "draft",
+    "id": "lookup_member_balance",
+    "schema_version": "1.0",
+    "version": "1.0.0"
+  },
+  "drift_signals": 0,
+  "environment": {
+    "app_url": "http://app:5000",
+    "git_sha": null,
+    "model": "gpt-4.1",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "escalations": 0,
+  "params": {
+    "member_id": "10001"
+  },
+  "recoveries": 1,
+  "restricted_captures": {
+    "committed": false,
+    "files": [],
+    "reason": "output 'savings_balance' is pii"
+  },
+  "run_id": "run-1fb36ba31b",
+  "status": "success",
+  "target": {
+    "entry_point": "http://app:5000/t/summit-cu/login",
+    "product_version": "7.4.11",
+    "surface_kind": "legacy_web",
+    "tenant_id": "summit-cu",
+    "vendor_product": "MERIDIAN CoreBank"
+  },
+  "timings": {
+    "duration_ms": 5070,
+    "finished_at": "2026-09-19T03:43:20.080395+00:00",
+    "started_at": "2026-09-19T03:43:15.010039+00:00",
+    "steps_ms": {
+      "s1": 501,
+      "s2": 470,
+      "s3": 452,
+      "s4": 688,
+      "s5": 1054,
+      "s6": 849,
+      "s7": 827
+    }
+  }
+}

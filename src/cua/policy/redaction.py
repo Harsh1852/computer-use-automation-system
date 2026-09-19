@@ -107,3 +107,16 @@ def default_redactor(environ: Mapping[str, str] | None = None) -> Redactor:
             {},
             [source.get(n, "") for n in ("APP_PASSWORD", "APP_USER", "OPENAI_API_KEY")],
         )
+
+
+def scrub_evidence(text: str) -> str:
+    """Scrub anything on its way to a file in an evidence directory.
+
+    The log sink was not the whole sink. An observation dump prints each
+    node's *value*, so the accessibility snapshot taken right after a
+    credential is typed contains that credential - and it reached disk
+    without passing the log processor at all. Every evidence write path now
+    goes through here, which is the only version of "redaction at the sink"
+    that is actually true.
+    """
+    return default_redactor().scrub_text(text)

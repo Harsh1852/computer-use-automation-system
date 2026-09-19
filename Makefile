@@ -56,8 +56,9 @@ ARTIFACT ?= lookup_member_balance
 PARAMS ?= {"member_id":"10001"}
 replay:
 	docker compose run --rm cua python -m cua.cli replay \
-	  --artifact $(ARTIFACT) --params '$(PARAMS)' \
-	  $(if $(EVIDENCE),--evidence $(EVIDENCE),) $(if $(TRACE),--trace,)
+	  --artifact $(ARTIFACT) --params '$(PARAMS)' $(TENANT_ARGS) \
+	  $(if $(EVIDENCE),--evidence $(EVIDENCE),) \
+	  $(if $(TRACE),--trace,) $(if $(ASSIST),--assist,)
 
 GOAL ?= Look up member 10001 and read their current savings balance.
 CAPID ?= lookup_member_balance
@@ -68,3 +69,13 @@ discover:
 escalation-demo:
 	docker compose run --rm --service-ports cua \
 	  python scripts/escalation_demo.py $(if $(MANUAL),--manual,)
+
+catalog:
+	docker compose run --rm --service-ports cua python -m cua.cli catalog
+
+agent-demo:
+	docker compose exec -T cua python scripts/agent_calls_capability.py 	  --catalog http://localhost:8081 $(if $(TENANT),--tenant $(TENANT),)
+
+N ?= 5
+stability:
+	docker compose run --rm cua python -m cua.cli stability 	  --artifact $(ARTIFACT) --params '$(PARAMS)' --n $(N) 	  $(if $(WRITE),--write,) $(if $(SUPERVISED),--supervised,)
