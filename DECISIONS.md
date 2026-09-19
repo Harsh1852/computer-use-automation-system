@@ -201,3 +201,58 @@ Deviations from the original sketch, each one a deliberate tightening:
   know I got there" is defined once. It uses `fnmatchcase`, because `fnmatch`
   normalises case via `os.path.normcase` and a checkpoint must not match
   differently on a Windows runner than on Linux.
+
+## Phase 5 - discovery agent
+
+- **The model never sees markup, ids, or selectors.** Its entire vocabulary
+  for "which element" is a `ref` from the last observation. Given HTML it
+  would reach for `#ctl00_ContentPlaceHolder1_txtMbrNo`, which is generated
+  from the ASP.NET control hierarchy and renamed by any server-side refactor
+  - and a flow recorded against markup stops being portable the moment a
+  surface has none.
+- **The model never sees credentials.** It is told to type literal
+  placeholder tokens; the tool layer substitutes them on the way to the
+  browser. The transcript therefore contains the placeholder, and the
+  recorder emits a `secret_ref` without having to recognise a password after
+  the fact. An unset variable is an error, never a guess.
+- **Unnamed fields are rendered with a `near=` hint**, computed from the same
+  containment relationship `near_text` uses. What the model reads and what the
+  recorder writes down therefore cannot disagree.
+- **The ladder is scored before the action, not after.** Found by a failing
+  test: scoring after a click that navigates measures the *next* page, every
+  rung returns zero matches, and the step is silently dropped. Two of seven
+  steps vanished from the recording that way.
+- **A `read` is never located by the data it reads.** Also found by a test:
+  the balance cell's accessible name *is* the balance, so `a11y_role_name`
+  won with one match and became the primary rung - an artifact that works for
+  member 10001 and nobody else. Name-based rungs are withheld for reads whose
+  content is their name, leaving `near_text` and the native rung.
+- **Anchors prefer labels over data.** The cell nearest the balance holds the
+  account *nickname*, which differs per member. Candidate anchors that look
+  like screen furniture (uppercase, no digits) are preferred over the merely
+  nearest.
+- **Recorded evidence describes structure, not content.** The `a11y_snippet`
+  quoted the whole containing row, which put a balance into an artifact bound
+  for a git repository - the same leak the locator rules had just closed,
+  through a field nobody was looking at.
+- **The outcome taxonomy is per-product configuration, not discovery.** A
+  happy-path run cannot observe "no such member" while successfully finding a
+  member. `discovery/catalogue.py` holds the known outcomes and transient
+  conditions for the vendor product and attaches them to every capability
+  recorded against it. Stated plainly rather than presented as discovered.
+- **The model proposes a contract; the recorder verifies it.** An input it
+  named but never typed is dropped, an output it named but never read is
+  dropped, and an output it read but forgot to declare is added. What the run
+  did is the evidence; the summary is only a claim about it.
+- **Outputs default to `pii` when they read like money or an account.**
+  Over-tagging costs a redacted line in the evidence; under-tagging writes a
+  customer's balance into a repository. The artifact is emitted as `draft` so
+  a reviewer can loosen it deliberately.
+- **Screenshots go to the model on the first observation and after `stuck`,
+  nowhere else.** Text observations are far cheaper and are what the artifact
+  is built from; an image every turn would make the model's competence depend
+  on pixels no desktop surface reproduces the same way.
+- **A scripted-model test drives the real browser through the whole pipeline.**
+  It exercises every line of the recorder without spending a token, and ends
+  by replaying the emitted artifact against a *different member* than the one
+  recorded - which is what proves the parameterisation rather than assuming it.

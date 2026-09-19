@@ -6,8 +6,8 @@ is recorded as a typed, versioned **capability artifact**. That artifact is then
 the executor cannot safely proceed it escalates to a human who takes control of the *same live
 browser session*, fixes the situation, and hands control back so the run resumes.
 
-> **Build status:** Phases 1–4 of 8 complete — the target application, the artifact schema, the
-> surface abstraction and deterministic replay. Subsequent phases add the discovery agent,
+> **Build status:** Phases 1–5 of 8 complete — the target application, the artifact schema, the
+> surface abstraction, deterministic replay and the discovery agent. Subsequent phases add
 > escalation, policy, and the write-up.
 
 ---
@@ -197,6 +197,42 @@ Three things that are deliberate:
 Each run writes `run.jsonl`, `result.json`, `manifest.json`, `screenshots/` and `observations/`
 into its evidence directory. Secrets and `pii`-tagged outputs are redacted there by their
 **declared sensitivity** — the caller receives the real balance, the repository does not.
+
+---
+
+## Discovery
+
+```bash
+make discover CAPID=lookup_member_balance WRITE=1   GOAL="Look up member 10001 and read their current savings balance."
+```
+
+Needs `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`. The model name is never hardcoded.
+
+The model observes, decides and acts; a **recorder running alongside it** turns the run into a
+capability. That split is the point: the model never sees a `TargetSpec` and could not write one,
+so its output shape cannot become the schema.
+
+What the model can and cannot see:
+
+- **No markup, no ids, no selectors.** Its whole vocabulary for "which element" is a `ref` from
+  the last observation. Fields with no accessible name are rendered with a `near="MEMBER NUMBER"`
+  hint, computed from the same containment relation the `near_text` locator uses, so what the
+  model reads and what the recorder writes down cannot disagree.
+- **No credentials.** It types placeholder tokens which the tool layer substitutes on the way to
+  the browser, so the transcript holds the placeholder and the recorder emits a `secret_ref`.
+- **One screenshot at the start, one after `stuck`.** Text observations everywhere else.
+
+Per accepted action the recorder scores the **full** candidate ladder against the live
+observation — before acting, while the element is still on screen — records each rung's match
+count, infers a postcondition from what actually changed, parameterises typed values *and the
+URLs they reappear in*, and classifies risk. The model's proposed contract is then validated
+against what was really typed and read.
+
+Stopping conditions: 25 tool calls, a 5-minute wall clock, three consecutive identical
+observation digests, or an explicit `stuck`.
+
+Evidence lands in `evidence/discovery-<id>/`: `transcript.jsonl`, `steps.jsonl`, `screenshots/`
+and the emitted `artifact.json`.
 
 ### Running the tests
 

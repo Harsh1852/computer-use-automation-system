@@ -115,6 +115,7 @@ class WebPlaywrightSurface:
         self._page: Page | None = None
 
         self._handles: dict[int, ElementHandle] = {}
+        self._ids: dict[int, str] = {}
         self._observation: Observation | None = None
         self._stale = True
         self._paused = False
@@ -189,6 +190,7 @@ class WebPlaywrightSurface:
         dialogs: list[Dialog] = []
         banners: list[Banner] = []
         handles: dict[int, ElementHandle] = {}
+        ids: dict[int, str] = {}
         title = ""
         ref = 0
 
@@ -227,6 +229,8 @@ class WebPlaywrightSurface:
                     continue
                 local_to_ref[local] = ref
                 handles[ref] = as_element
+                if descriptor.get("dom_id"):
+                    ids[ref] = descriptor["dom_id"]
                 nodes.append(
                     UiNode(
                         ref=ref,
@@ -266,6 +270,7 @@ class WebPlaywrightSurface:
                 )
 
         self._handles = handles
+        self._ids = ids
         self._observation = Observation(
             url=page.url,
             title=title or (await page.title() if page else ""),
@@ -423,6 +428,31 @@ class WebPlaywrightSurface:
 
     async def resolve(self, spec: TargetSpec, frame_path: list[str]) -> Handle | None:
         return (await walk_ladder(self, spec, frame_path)).handle
+
+    async def handle_for(self, ref: int) -> Handle | None:
+        observation = await self._current()
+        node = observation.by_ref(ref)
+        if node is None or ref not in self._handles:
+            return None
+        return self._handle_for(node, TargetStrategy.A11Y_ROLE_NAME, 1)
+
+    def native_locator(self, ref: int) -> TargetCandidate | None:
+        """`#id` when the element has one. Recorded as the brittle last rung.
+
+        These are ASP.NET generated ids: unique today, and renamed by any
+        server-side change to the control hierarchy. That is exactly what
+        `brittle` means, and why this rung sits at the bottom of the ladder
+        rather than the top where its convenience would put it.
+        """
+        element = self._handles.get(ref)
+        if element is None:
+            return None
+        element_id = self._ids.get(ref)
+        if not element_id:
+            return None
+        return TargetCandidate(
+            strategy=TargetStrategy.CSS, value=f'[id="{element_id}"]'
+        )
 
     # ---------------------------------------------------------------- acting
 

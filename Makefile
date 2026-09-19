@@ -58,3 +58,9 @@ replay:
 	docker compose run --rm cua python -m cua.cli replay \
 	  --artifact $(ARTIFACT) --params '$(PARAMS)' \
 	  $(if $(EVIDENCE),--evidence $(EVIDENCE),) $(if $(TRACE),--trace,)
+
+GOAL ?= Look up member 10001 and read their current savings balance.
+CAPID ?= lookup_member_balance
+discover:
+	docker compose run --rm cua python -m cua.cli discover \
+	  --goal "$(GOAL)" --id $(CAPID) $(if $(WRITE),--write-artifact,)

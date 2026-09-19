@@ -203,6 +203,7 @@
       visible: true,
       bbox: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
       order: idx,
+      dom_id: el.id || null,
       container: null
     });
   }

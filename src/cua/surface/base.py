@@ -167,6 +167,23 @@ class Surface(Protocol):
 
     async def resolve(self, spec: TargetSpec, frame_path: list[str]) -> Handle | None: ...
 
+    async def handle_for(self, ref: int) -> Handle | None:
+        """The handle for a node in the current observation.
+
+        The discovery agent names elements by `ref` and never writes a
+        selector, so turning a ref back into something actionable is the
+        surface's job."""
+        ...
+
+    def native_locator(self, ref: int) -> TargetCandidate | None:
+        """A surface-native last-resort locator, or None if there is none.
+
+        The recorder cannot build a `css` rung itself without knowing what a
+        DOM is. A surface that has no such concept returns None and simply
+        contributes no brittle rung to the ladder — which is the correct
+        answer for a desktop surface, not a gap."""
+        ...
+
     async def act(self, action: Action, handle: Handle | None) -> ActionResult: ...
 
     async def snapshot(self, label: str = "snapshot") -> Snapshot: ...

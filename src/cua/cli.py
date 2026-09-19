@@ -167,6 +167,119 @@ async def _replay(args: argparse.Namespace) -> int:
     return 1 if result.status == "failure" else 0
 
 
+async def _discover(args: argparse.Namespace) -> int:
+    from .discovery import DiscoveryAgent, Recorder, outcomes_for, recoveries_for
+    from .evidence import RunLog
+    from .schema import Capability
+
+    base = _app_url()
+    entry_url = args.entry or f"{base}{args.tenant_prefix}/login"
+    run_dir = Path(args.evidence or f"evidence/discovery-{args.id}")
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    surface = registry.create(
+        SurfaceKind(args.surface_kind),
+        entry_url=entry_url,
+        headless=args.headless,
+        run_dir=str(run_dir),
+    )
+    await surface.start()
+    log = RunLog(run_dir, f"discovery-{args.id}", also_stdout=not args.quiet)
+    try:
+        recorder = Recorder(
+            surface,
+            goal=args.goal,
+            entry_url=entry_url,
+            tenant_id=args.tenant,
+            vendor_product=args.product,
+            product_version=args.product_version,
+            surface_kind=SurfaceKind(args.surface_kind),
+        )
+        agent = DiscoveryAgent(
+            surface,
+            recorder,
+            goal=args.goal,
+            entry_url=entry_url,
+            run_dir=run_dir,
+            log=log,
+        )
+        result = await agent.run()
+
+        (run_dir / "steps.jsonl").write_text(
+            "\n".join(
+                json.dumps(
+                    {
+                        "id": rs.step.id,
+                        "intent": rs.step.intent,
+                        "action": rs.step.action.value,
+                        "frame_path": rs.step.frame_path,
+                        "risk": rs.step.risk.value,
+                        "ladder": rs.ladder_counts,
+                        "winning_strategy": (
+                            rs.step.target.recorded.winning_strategy.value
+                            if rs.step.target
+                            else None
+                        ),
+                        "observed_ms": rs.step.timing.observed_ms_p50,
+                    }
+                )
+                for rs in recorder.steps
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        print()
+        print(f"discovery {result.status}: {result.reason}")
+        print(f"tool calls {result.tool_calls}  duration {result.duration_s:.0f}s  "
+              f"recorded steps {len(recorder.steps)}")
+        if recorder.skipped:
+            print("skipped:")
+            for note in recorder.skipped:
+                print(f"  - {note}")
+
+        if not result.ok:
+            print(f"\nno artifact emitted; evidence in {run_dir}/")
+            return 1
+
+        capability = recorder.build_capability(
+            capability_id=args.id,
+            proposal=result.proposal,
+            run_id=f"discovery-{args.id}",
+            model=agent.model,
+            transcript_sha256=result.transcript_sha256,
+            known_outcomes=outcomes_for(args.product, recorder._content_frame()),
+            known_recoveries=recoveries_for(args.product),
+            title=args.title,
+        )
+        emitted = json.loads(capability.model_dump_json(exclude_none=False))
+        (run_dir / "artifact.json").write_text(
+            json.dumps(emitted, indent=2), encoding="utf-8"
+        )
+        target = Path("artifacts") / f"{args.id}.v1.json"
+        if args.write_artifact:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(emitted, indent=2), encoding="utf-8")
+
+        # Re-parse what was written: an artifact that does not load is not an
+        # artifact, and finding that out now is cheaper than at replay.
+        Capability.model_validate_json((run_dir / "artifact.json").read_text(encoding="utf-8"))
+
+        print()
+        print(f"artifact   {run_dir / 'artifact.json'}")
+        if args.write_artifact:
+            print(f"installed  {target}")
+        print(f"inputs     {[i.name for i in capability.contract.inputs]}")
+        print(f"outputs    {[o.name for o in capability.contract.outputs]}")
+        print(f"steps      {len(capability.steps)}  "
+              f"irreversible {len(capability.irreversible_steps)}")
+        print(f"approval   {capability.approval.state.value}")
+        return 0
+    finally:
+        log.close()
+        await surface.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cua", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -192,6 +305,24 @@ def main(argv: list[str] | None = None) -> int:
         "--capture-steps", action="store_true", help="screenshot every step"
     )
     replay.set_defaults(func=_replay)
+
+    discover = sub.add_parser("discover", help="run the LLM agent against a goal")
+    discover.add_argument("--goal", required=True)
+    discover.add_argument("--id", required=True, help="capability id, snake_case")
+    discover.add_argument("--title", default=None)
+    discover.add_argument("--entry", default=None, help="entry point URL")
+    discover.add_argument("--tenant-prefix", default="")
+    discover.add_argument("--tenant", default="meridian")
+    discover.add_argument("--product", default="MERIDIAN CoreBank")
+    discover.add_argument("--product-version", default="7.4.11")
+    discover.add_argument("--surface-kind", default=SurfaceKind.LEGACY_WEB.value)
+    discover.add_argument("--evidence", default=None)
+    discover.add_argument("--headless", action="store_true")
+    discover.add_argument("--quiet", action="store_true")
+    discover.add_argument(
+        "--write-artifact", action="store_true", help="also install into artifacts/"
+    )
+    discover.set_defaults(func=_discover)
 
     args = parser.parse_args(argv)
     return asyncio.run(args.func(args))
