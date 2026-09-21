@@ -1,0 +1,20 @@
+# Every text file in this repository is ultimately read inside a Linux
+# container. Git for Windows ships with core.autocrlf=true, so a clone on
+# Windows rewrites these files to CRLF on checkout - and the container's
+# entrypoint then dies on a shebang that reads `bash\r`, with an error that
+# names neither the file nor the cause:
+#
+#   /usr/bin/env: 'bash\r': No such file or directory
+#
+# The blobs were already stored with LF, so a Linux or macOS clone worked
+# and a Windows clone did not. Pinning the working tree to LF makes the
+# checkout identical on every platform instead of depending on whoever
+# cloned it.
+* text=auto eol=lf
+
+# Screenshots in evidence/ and the layout spacer the target app serves.
+# `text=auto` already detects these, but declaring them makes the intent
+# explicit rather than relying on heuristics.
+*.png binary
+*.gif binary
+*.pdf binary
