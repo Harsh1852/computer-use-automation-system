@@ -27,6 +27,15 @@ start_xvfb() {
   if xdpyinfo -display ":${DISPLAY_NUM}" >/dev/null 2>&1; then
     return
   fi
+  # A stopped container keeps its filesystem, so `docker compose up -d` after
+  # a Docker restart re-enters a container still holding the lock file from
+  # its previous life. Xvfb then refuses to start, the entrypoint exits, and
+  # every later `exec` fails with "service cua is not running" - a dead
+  # runtime whose cause is buried in the container log.
+  #
+  # xdpyinfo has just told us nothing is listening on this display, so any
+  # lock still present belongs to a server that no longer exists.
+  rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}"
   Xvfb ":${DISPLAY_NUM}" -screen 0 "${SCREEN_GEOMETRY}" -nolisten tcp &
   for _ in $(seq 1 50); do
     xdpyinfo -display ":${DISPLAY_NUM}" >/dev/null 2>&1 && return

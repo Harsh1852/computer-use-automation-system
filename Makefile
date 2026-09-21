@@ -1,6 +1,7 @@
 APP_URL ?= http://localhost:5000
 
-.PHONY: help up down logs reset inject faults test test-schema boundary observe
+.PHONY: help up down logs reset inject faults test test-schema boundary observe \
+        replay discover escalation-demo catalog agent-demo stability
 
 help:
 	@echo "up                 bring up the stack"
@@ -66,12 +67,20 @@ discover:
 	docker compose run --rm cua python -m cua.cli discover \
 	  --goal "$(GOAL)" --id $(CAPID) $(if $(WRITE),--write-artifact,)
 
+# Also `exec` rather than `run --service-ports`: the running service already
+# holds host 8080/6080/6081, so a one-off container's console and VNC bridges
+# are unreachable - the operator opens localhost:8080 and gets nothing. The
+# handoff has to happen on the display the VNC bridges are attached to.
 escalation-demo:
-	docker compose run --rm --service-ports cua \
+	docker compose exec cua \
 	  python scripts/escalation_demo.py $(if $(MANUAL),--manual,)
 
+# Runs inside the already-running `cua` service rather than a one-off
+# container, for two reasons: `run --service-ports` collides with the port
+# the running service has already published, and `agent-demo` execs into
+# that same service, so the catalog has to be on *its* localhost.
 catalog:
-	docker compose run --rm --service-ports cua python -m cua.cli catalog
+	docker compose exec cua python -m cua.cli catalog
 
 agent-demo:
 	docker compose exec -T cua python scripts/agent_calls_capability.py 	  --catalog http://localhost:8081 $(if $(TENANT),--tenant $(TENANT),)

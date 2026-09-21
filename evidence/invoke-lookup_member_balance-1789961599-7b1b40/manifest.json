@@ -14,18 +14,18 @@
     "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
     "python": "3.12.3"
   },
-  "escalations": 1,
+  "escalations": 0,
   "params": {
-    "member_id": "10001"
+    "member_id": "99999"
   },
-  "recoveries": 0,
+  "recoveries": 1,
   "restricted_captures": {
     "committed": false,
     "files": [],
-    "reason": "output 'savings_balance' is pii"
+    "reason": null
   },
-  "run_id": "run-dc4d61ee9b",
-  "status": "success",
+  "run_id": "run-c801c5ddbe",
+  "status": "business_outcome",
   "target": {
     "entry_point": "http://app:5000/login",
     "product_version": "7.4.11",
@@ -34,17 +34,15 @@
     "vendor_product": "MERIDIAN CoreBank"
   },
   "timings": {
-    "duration_ms": 5308,
-    "finished_at": "2026-09-21T03:31:46.653058+00:00",
-    "started_at": "2026-09-21T03:31:41.344085+00:00",
+    "duration_ms": 4943,
+    "finished_at": "2026-09-21T03:33:25.286738+00:00",
+    "started_at": "2026-09-21T03:33:20.343396+00:00",
     "steps_ms": {
-      "s1": 352,
-      "s2": 364,
-      "s3": 331,
-      "s4": 712,
-      "s5": 885,
-      "s6": 798,
-      "s7": 639
+      "s1": 477,
+      "s2": 526,
+      "s3": 549,
+      "s4": 855,
+      "s5": 1315
     }
   }
 }
