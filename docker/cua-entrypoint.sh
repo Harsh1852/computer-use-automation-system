@@ -36,12 +36,18 @@ start_xvfb() {
   # xdpyinfo has just told us nothing is listening on this display, so any
   # lock still present belongs to a server that no longer exists.
   rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}"
-  Xvfb ":${DISPLAY_NUM}" -screen 0 "${SCREEN_GEOMETRY}" -nolisten tcp &
+  # Xvfb prints ~40 lines of "could not resolve keysym" on every start. They
+  # are harmless, they are not ours, and they land on the console in front of
+  # whatever the command was actually asked to print. Kept in a file so a
+  # genuine failure is still diagnosable.
+  Xvfb ":${DISPLAY_NUM}" -screen 0 "${SCREEN_GEOMETRY}" -nolisten tcp \
+    >/tmp/xvfb.log 2>&1 &
   for _ in $(seq 1 50); do
     xdpyinfo -display ":${DISPLAY_NUM}" >/dev/null 2>&1 && return
     sleep 0.1
   done
   echo "Xvfb failed to start on :${DISPLAY_NUM}" >&2
+  tail -n 20 /tmp/xvfb.log >&2 || true
   exit 1
 }
 
