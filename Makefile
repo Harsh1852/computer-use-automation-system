@@ -65,7 +65,9 @@ GOAL ?= Look up member 10001 and read their current savings balance.
 CAPID ?= lookup_member_balance
 discover:
 	docker compose run --rm cua python -m cua.cli discover \
-	  --goal "$(GOAL)" --id $(CAPID) $(if $(WRITE),--write-artifact,)
+	  --goal "$(GOAL)" --id $(CAPID) $(if $(WRITE),--write-artifact,) \
+	  $(if $(EVIDENCE),--evidence $(EVIDENCE),) \
+	  $(if $(SUPERVISED),--supervised,)
 
 # Also `exec` rather than `run --service-ports`: the running service already
 # holds host 8080/6080/6081, so a one-off container's console and VNC bridges
@@ -83,8 +85,12 @@ catalog:
 	docker compose exec cua python -m cua.cli catalog
 
 agent-demo:
-	docker compose exec -T cua python scripts/agent_calls_capability.py 	  --catalog http://localhost:8081 $(if $(TENANT),--tenant $(TENANT),)
+	docker compose exec -T cua python scripts/agent_calls_capability.py \
+	  --catalog http://localhost:8081 $(if $(TENANT),--tenant $(TENANT),)
 
 N ?= 5
 stability:
-	docker compose run --rm cua python -m cua.cli stability 	  --artifact $(ARTIFACT) --params '$(PARAMS)' --n $(N) 	  $(if $(WRITE),--write,) $(if $(SUPERVISED),--supervised,)
+	docker compose run --rm cua python -m cua.cli stability \
+	  --artifact $(ARTIFACT) --params '$(PARAMS)' --n $(N) \
+	  $(if $(EVIDENCE),--evidence $(EVIDENCE),) \
+	  $(if $(WRITE),--write,) $(if $(SUPERVISED),--supervised,)

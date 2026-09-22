@@ -20,10 +20,11 @@ surface/          the ONLY package that knows about a browser
 **The surface seam is the load-bearing decision.** Everything above it speaks
 `Observation`, `Action` and `Handle` and never learns what is underneath. It is
 checked rather than intended: `make boundary` greps for the driver outside
-`src/cua/surface/`, and 173 of the 225 tests run in an image with **no browser
-installed at all**. The boundary test caught a real leak — importing a helper
-whose *module name* contained the driver — which is exactly the kind of drift
-a convention would not have caught.
+`src/cua/surface/`, and 179 of the 233 tests run in an image with **no browser
+installed at all** — 177 pass there and the 2 protocol-conformance checks skip
+for want of a driver, which is the point of running them there. The boundary
+test caught a real leak — importing a helper whose *module name* contained the
+driver — which is exactly the kind of drift a convention would not have caught.
 
 **Replay was built before discovery, deliberately.** Writing the agent first
 lets whatever the model happens to emit become the schema by default. Since the
@@ -74,7 +75,8 @@ that cannot say what produced it cannot be debugged.
 
 ## 3. Determinism & error handling
 
-**Locators.** A recorded ladder of up to five rungs, tried in order. Two rules:
+**Locators.** A recorded ladder drawn from six strategies — four portable, plus
+`css`/`xpath` — tried in order; the shipped artifacts use three. Two rules:
 *ambiguity is a miss* — a rung matching more than one node is recorded and
 skipped, never resolved by taking the first — and *every attempt is kept*, so a
 `TARGET_NOT_FOUND` reports each rung's count plus the same-role nodes that were
@@ -125,13 +127,15 @@ is the generalised containment path: frame names on the web, window/pane
 hierarchy on desktop. `container_ref` and `order` give `near_text` a notion of
 proximity that means the same thing on a surface with no DOM.
 
-**What a `DesktopSurface` implements:** `observe`, `find`, `act`, `snapshot`,
-`pause`, `resume`, `watch_human_actions`. It does **not** implement the locator
-ladder, the detectors, the executor or the schema. Only `css` and `xpath` reach
-the driver; the four portable rungs resolve by filtering `UiNode`s in Python, so
-a surface with no DOM simply contributes no brittle rungs and the rest works
-unchanged. `registry.create(DESKTOP)` raises an error naming exactly what an
-implementation would supply — an honest statement of the seam rather than a
+**What a `DesktopSurface` implements:** the ten members of the `Surface`
+Protocol — `observe`, `find`, `resolve`, `act`, `snapshot`, `start`, `close`,
+`pause`, `resume`, `watch_human_actions` — plus `handle_for` and
+`native_locator`. It does **not** implement the locator ladder, the detectors,
+the executor or the schema. Only `css` and `xpath` reach the driver; the four
+portable rungs resolve by filtering `UiNode`s in Python, so such a surface
+answers `native_locator` with `None`, contributes no brittle rung, and the rest
+works unchanged. `registry.create(DESKTOP)` raises an error naming exactly what
+an implementation would supply — an honest statement of the seam rather than a
 class full of `NotImplementedError`.
 
 **Base / overlay / fork.** An overlay may rename controls, remap frames, prefix
@@ -142,7 +146,7 @@ any of those forks with an explicit `variant_of`, so divergence is visible in
 the catalog rather than hidden in an override file.
 
 Demonstrated: `lookup_member_balance`, recorded against MERIDIAN, replays
-against `/t/summit-cu/` with a 20-line overlay and returns the same balance.
+against `/t/summit-cu/` with a 22-line overlay and returns the same balance.
 Pointing the same recording at Summit with **routing only** fails at `s4` —
 `button 'SEARCH' present in frame contentFrame → 0 matching node(s)` — because
 Summit calls that frame `main`. The registry **refuses** a tenant with no

@@ -60,9 +60,17 @@ repository root.
 | `make catalog` | `docker compose exec cua python -m cua.cli catalog` |
 | `make agent-demo` | `docker compose exec -T cua python scripts/agent_calls_capability.py --catalog http://localhost:8081` |
 
-The remaining `make` variables map to flags on the same commands: `TENANT_ARGS=…` is appended
-verbatim, `EVIDENCE=x` becomes `--evidence x`, `TRACE=1` becomes `--trace`, `ASSIST=1` becomes
-`--assist`, and `SUPERVISED=1` becomes `--supervised`.
+The remaining `make` variables map to flags on the same commands, each on the targets whose CLI
+subcommand accepts it:
+
+| Variable | Becomes | Targets |
+|---|---|---|
+| `TENANT_ARGS=…` | appended verbatim | `replay` |
+| `TRACE=1` | `--trace` | `replay` |
+| `ASSIST=1` | `--assist` | `replay` |
+| `EVIDENCE=x` | `--evidence x` | `replay`, `discover`, `stability` |
+| `SUPERVISED=1` | `--supervised` | `discover`, `stability` |
+| `TENANT=x` | `--tenant-prefix x` on `observe` (a URL prefix, `/t/summit-cu`); `--tenant x` on `agent-demo` (a tenant id, `summit-cu`) | `observe`, `agent-demo` |
 
 `escalation-demo`, `catalog` and `agent-demo` use `docker compose exec` rather than `run`
 deliberately: the already-running `cua` service holds host ports 8080/8081/6080/6081, so a
@@ -191,11 +199,12 @@ make boundary        # grep -r playwright src/cua | grep -v surface/  must be em
 make test-schema     # the schema and seam tests pass in an image with no browser installed
 ```
 
-A new surface implements six things: `observe`, `find`, `act`, `snapshot`, `pause`, `resume`. It
-does **not** implement the locator ladder — `walk_ladder` is shared policy, because "try the
-primary, then fallbacks in order, and treat an ambiguous match as a miss" is a rule about
-robustness, not about browsers. A `DesktopSurface` supplies perception and actuation; determinism
-is inherited.
+A new surface implements ten things: the perception and actuation core — `observe`, `find`,
+`resolve`, `act`, `snapshot` — plus `start`/`close` for lifecycle, `pause`/`resume` for the
+handoff, and `watch_human_actions` so an operator's steps reach the audit trail. It does **not**
+implement the locator ladder — `walk_ladder` is shared policy, because "try the primary, then
+fallbacks in order, and treat an ambiguous match as a miss" is a rule about robustness, not
+about browsers. A `DesktopSurface` supplies perception and actuation; determinism is inherited.
 
 **Only `css` and `xpath` touch the driver.** The four portable rungs (`a11y_role_name`,
 `label_text`, `near_text`, `exact_text`) resolve by filtering `UiNode`s in Python. A surface with
@@ -261,10 +270,16 @@ into its evidence directory. Secrets and `pii`-tagged outputs are redacted there
 ## Discovery
 
 ```bash
-make discover CAPID=lookup_member_balance WRITE=1   GOAL="Look up member 10001 and read their current savings balance."
+make discover CAPID=lookup_member_balance_llm WRITE=1 EVIDENCE=evidence/discovery-lookup-balance \
+  GOAL="Look up member 10001 and read their current savings balance."
 ```
 
 Needs `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`. The model name is never hardcoded.
+
+`CAPID` is both the artifact id and, unless `EVIDENCE` overrides it, the evidence directory
+(`evidence/discovery-<CAPID>/`). It is deliberately **not** `lookup_member_balance` here:
+`WRITE=1` installs `artifacts/<CAPID>.v1.json`, and reusing the id would overwrite the
+hand-written, `approved` artifact the replay and stability sections below depend on.
 
 The model observes, decides and acts; a **recorder running alongside it** turns the run into a
 capability. That split is the point: the model never sees a `TargetSpec` and could not write one,
@@ -302,8 +317,8 @@ Two genuine `gpt-4.1` runs are recorded in `evidence/`, each with `transcript.js
 
 | Run | Result |
 |---|---|
-| `lookup_member_balance` | 8 tool calls, 13s, **7 steps**. Replays: `10001 → 1234.56`, `10002 → 88.00`, `99999 → MEMBER_NOT_FOUND` |
-| `open_subaccount` | 15 tool calls, 51s, **14 steps, 1 irreversible**. Recorded on 10001/SAVINGS/VACATION/50.00; replayed as 10002/MONEY MARKET/RAINY DAY/500.00 → `10002-M91` |
+| `discovery-lookup-balance/` → `lookup_member_balance_llm` | 8 tool calls, 13s, **7 steps**. Replays: `10001 → 1234.56`, `10002 → 88.00`, `99999 → MEMBER_NOT_FOUND` |
+| `discovery-open-subaccount/` → `open_subaccount` | 15 tool calls, 51s, **14 steps, 1 irreversible**. Recorded on 10001/SAVINGS/VACATION/50.00; replayed as CHECKING/HOLIDAY/75.00 in [`evidence/replay-open-subaccount/`](evidence/replay-open-subaccount/manifest.json) |
 
 Told not to act irreversibly, the model walked the entire sub-account form and then **stopped at
 the review screen and called `stuck`** — the safety rule holding on its own. Recording that
@@ -315,8 +330,9 @@ irreversible action. Recording that step is a deliberate act — a person presen
 edited to say so. All three of those paths are asserted against a live model in
 [`tests/test_discovery_llm.py`](tests/test_discovery_llm.py).
 
-Both artifacts are emitted as `draft`, reference credentials only as `secret_ref`, and contain no
-seeded password anywhere — there is a test that greps for it.
+Both are emitted as `draft` — approval is earned later, by `make stability` — and both reference
+credentials only as `secret_ref` and contain no seeded password anywhere; there is a test that
+greps for it.
 
 ---
 
@@ -383,8 +399,12 @@ with `RISKY_APPROVAL`. The prompt is advisory; the gate is enforcement.
 **The asymmetry.** Discovery may never perform an irreversible action: the model is exploratory
 and fallible, and an account opened by mistake cannot be un-opened. Replay may, because a human
 has already reviewed exactly which step is irreversible — but only once the artifact is
-`approved`. `open_subaccount` is still a draft, so replaying it runs twelve steps, reaches the
-review screen, and stops at `s13`.
+`approved`. While `open_subaccount` was a draft, replaying it ran twelve steps, reached the
+review screen, and stopped at `s13` with `POLICY_BLOCKED`. It ships `approved` today, having
+earned it through `make stability SUPERVISED=1` — so both halves of the asymmetry are asserted
+against the live app in
+[`tests/test_policy_live.py`](tests/test_policy_live.py), which forces the draft state itself
+rather than depending on what the shipped artifact happens to say.
 
 **Redaction is at the sink.** `RunLog` installs the redactor at the front of the processor
 chain unless explicitly disabled, so a log line written in a hurry is still covered. Exact
@@ -417,12 +437,14 @@ make test                     # 229 tests (the 4 `llm` ones are opted into separ
 **1. Discovery — a model drives the UI once** *(needs `OPENAI_API_KEY`)*
 
 ```bash
-make discover CAPID=lookup_member_balance WRITE=1 \
+make discover CAPID=lookup_member_balance_llm WRITE=1 EVIDENCE=evidence/discovery-lookup-balance \
   GOAL="Look up member 10001 and read their current savings balance."
 ```
 
 8 tool calls, ~13s, 7 recorded steps. Evidence and the emitted artifact land in
-`evidence/discovery-lookup-balance/`.
+`evidence/discovery-lookup-balance/`, and `WRITE=1` installs
+`artifacts/lookup_member_balance_llm.v1.json` — a separate id from the hand-written
+`lookup_member_balance` the steps below replay, so a discovery run cannot overwrite it.
 
 **2. Look at what it recorded**
 
@@ -468,7 +490,7 @@ make replay ARTIFACT=tests/fixtures/reach_admin.v1.json PARAMS='{}'   # POLICY_B
 
 ```bash
 make replay ARTIFACT=lookup_member_balance TENANT_ARGS="--tenant summit-cu" \
-  PARAMS='{"member_id":"10001"}'          # SUCCESS, via a 20-line overlay
+  PARAMS='{"member_id":"10001"}'          # SUCCESS, via a 22-line overlay
 
 make replay ARTIFACT=lookup_member_balance TENANT_ARGS="--tenant summit-cu --no-overlay" \
   PARAMS='{"member_id":"10001"}'          # CHECKPOINT_FAILED: Summit calls that frame `main`
@@ -522,16 +544,30 @@ outcome is declared in the contract and therefore in the tool description it was
 | `discovery-open-subaccount/` | the same for a 14-step flow containing an irreversible step |
 | `discovery-policy-blocked/` | discovery stopped at CONFIRM with `RISKY_APPROVAL` |
 | `replay-success/` | the happy path, with the post-balance screenshot quarantined |
+| `replay-of-discovery/` | the artifact the model emitted, replayed with the model gone |
 | `replay-business-outcome/` | `MEMBER_NOT_FOUND` returned as an answer |
+| `replay-permission-denied/` | `PERMISSION_DENIED` — a declared outcome beating a real 403 |
+| `replay-contract/` | `CONTRACT_VIOLATION` on `member_id: "abc"`, 0 steps, browser never opened |
 | `replay-recoverable/` | a modal dismissed by a declared rule, plus an absorbed delay |
+| `replay-recovered-modal/` | the same dismissal on its own, without the delay |
 | `replay-hard-failure/` | HTTP 500, naming the frame that errored |
 | `replay-escalation/` | the full handoff, human and machine steps interleaved |
 | `replay-policy-blocked/` | the allowlist refusing `/admin/**` |
 | `replay-overlay-summit/` | the base recording running against a second tenant |
+| `replay-overlay-missing/` | the same tenant with routing only — `CHECKPOINT_FAILED` at `s4` |
+| `replay-open-subaccount/` | the 14-step flow replayed on parameters it was not recorded with |
 | `replay-assisted-fallback/` | one bounded model call rescuing a drifted locator |
+| `invoke-lookup_member_balance-*/` | the same capability invoked through the catalog API |
 | `stability-*/` | the replays that earned `approved` |
+| `phase3-observation/` | a bare observation of the frameset, from the surface phase |
 
-Each contains `run.jsonl`, `result.json`, `manifest.json` and `screenshots/`.
+Every run writes `run.jsonl`. Each replay adds `result.json` and `manifest.json`; the discovery
+runs write `transcript.jsonl`, `steps.jsonl` and the emitted `artifact.json` instead. Screenshots,
+`a11y/` dumps and `observations/` appear where a run had something to capture — an outcome, a
+failure, a checkpoint — so a run refused before the browser opened (`replay-contract/`,
+`replay-policy-blocked/`) has none, and the stability runs record results rather than pictures.
+Captures taken after a `pii`-tagged output is read are quarantined to a gitignored `restricted/`
+that the manifest lists but does not commit.
 
 ### Running the tests
 

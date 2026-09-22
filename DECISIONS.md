@@ -407,8 +407,11 @@ The asymmetry, stated plainly because it is the point: discovery may never
 perform an irreversible action, because the model is exploratory and fallible
 and an account opened by mistake cannot be un-opened. Replay may, because a
 human has already reviewed exactly which step is irreversible - but only once
-the artifact has earned approval. Today open_subaccount is a draft, so
-replaying it runs twelve steps, reaches the review screen, and stops.
+the artifact has earned approval. While open_subaccount was a draft,
+replaying it ran twelve steps, reached the review screen, and stopped. Phase 8
+promoted it with `make stability SUPERVISED=1`, so it ships approved; the test
+that covers the blocked half forces the draft state rather than relying on the
+shipped artifact, because stability legitimately changes it.
 
 ## Phase 8 - stretch goals, evidence, write-up
 

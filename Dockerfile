@@ -93,4 +93,8 @@ RUN uv pip install --system --no-cache \
 
 COPY . /work
 
-CMD ["pytest", "-q", "-m", "not llm"]
+# `not integration` as well as `not llm`: this image has no browser, so the
+# integration tests cannot pass here and their absence is the point. `make
+# test-schema` passes the same selection explicitly; this is the default for
+# anyone who runs the image with no command.
+CMD ["pytest", "-q", "-m", "not llm and not integration"]
