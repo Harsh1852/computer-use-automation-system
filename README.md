@@ -32,6 +32,64 @@ key; only the discovery agent does.
 | `APP_SECRET_KEY` | Flask session signing key for the demo app. |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Discovery agent only. The model name is never hardcoded. |
 
+### Running without `make`
+
+`make` is a convenience, not a dependency — it is not installed by default on Windows, and every
+target in the [Makefile](Makefile) is one `docker compose` command. The rest of this README uses
+the short `make` form; this table is the authoritative translation. Run all of them from the
+repository root.
+
+| `make …` | Equivalent command |
+|---|---|
+| `make up` | `docker compose up --build -d` |
+| `make down` | `docker compose down -v` |
+| `make logs` | `docker compose logs -f` |
+| `make test` | the `boundary` check below, then `docker compose run --rm cua pytest -q -m "not llm"` |
+| `make test-schema` | `docker compose --profile test run --rm --build tests pytest -q -m "not llm and not integration"` |
+| `make boundary` | `grep -r playwright src/cua --include="*.py" \| grep -v surface/` — must print nothing |
+| `make observe` | `docker compose run --rm cua python -m cua.cli observe` |
+| `make observe TENANT=/t/summit-cu` | `docker compose run --rm cua python -m cua.cli observe --tenant-prefix /t/summit-cu` |
+| `make reset` | `curl -s -X POST http://localhost:5000/admin/reset` |
+| `make inject FAULT=slow` | `curl -s -X POST http://localhost:5000/admin/inject -H 'Content-Type: application/json' -d '{"fault":"slow","once":true}'` |
+| `make faults` | `curl -s http://localhost:5000/admin/status` |
+| `make replay ARTIFACT=A PARAMS=P` | `docker compose run --rm cua python -m cua.cli replay --artifact A --params 'P'` |
+| `make discover CAPID=C GOAL=G WRITE=1` | `docker compose run --rm cua python -m cua.cli discover --id C --goal "G" --write-artifact` |
+| `make stability ARTIFACT=A PARAMS=P N=5 WRITE=1` | `docker compose run --rm cua python -m cua.cli stability --artifact A --params 'P' --n 5 --write` |
+| `make escalation-demo [MANUAL=1]` | `docker compose exec cua python scripts/escalation_demo.py [--manual]` |
+| `make catalog` | `docker compose exec cua python -m cua.cli catalog` |
+| `make agent-demo` | `docker compose exec -T cua python scripts/agent_calls_capability.py --catalog http://localhost:8081` |
+
+The remaining `make` variables map to flags on the same commands: `TENANT_ARGS=…` is appended
+verbatim, `EVIDENCE=x` becomes `--evidence x`, `TRACE=1` becomes `--trace`, `ASSIST=1` becomes
+`--assist`, and `SUPERVISED=1` becomes `--supervised`.
+
+`escalation-demo`, `catalog` and `agent-demo` use `docker compose exec` rather than `run`
+deliberately: the already-running `cua` service holds host ports 8080/8081/6080/6081, so a
+one-off container's console and VNC bridges would be unreachable.
+
+#### Windows
+
+The commands above work as written in **Git Bash** and **WSL**. In **PowerShell** two of them
+need adjusting:
+
+- **JSON arguments must escape their inner quotes.** PowerShell strips them when building the
+  command line for a native executable, so `--params '{"member_id":"10001"}'` arrives at the CLI
+  as `{member_id:10001}` and fails to parse. Write `--params '{\"member_id\":\"10001\"}'`.
+- **`curl` is an alias for `Invoke-WebRequest`** and rejects `-X`/`-H`/`-d`. Use `curl.exe`.
+
+PowerShell has no `grep`, so the `boundary` check becomes:
+
+```powershell
+Get-ChildItem src\cua -Recurse -Filter *.py | Select-String playwright |
+  Where-Object { $_.Path -notmatch '\\surface\\' }
+```
+
+Two further notes, whichever shell you use. Git for Windows ships with `core.autocrlf=true`;
+[`.gitattributes`](.gitattributes) pins the working tree to LF so the container entrypoint does
+not die on a `bash\r` shebang, but a clone made before that file existed needs re-cloning. And in
+Git Bash, MSYS rewrites leading-slash arguments into Windows paths — pass `--tenant-prefix` and
+`--path` only when you need a non-default value, or prefix the command with `MSYS_NO_PATHCONV=1`.
+
 ---
 
 ## The target application
@@ -336,7 +394,8 @@ against the live app, one flag apart.
 
 ## Demo path
 
-Everything except discovery runs with **no API key**.
+Everything except discovery runs with **no API key**. If you do not have `make`, every command
+below has a one-line `docker compose` equivalent in [Running without `make`](#running-without-make).
 
 ```bash
 cp .env.example .env          # only OPENAI_* are needed, and only for discovery
@@ -470,7 +529,8 @@ make test
 ```
 
 No host-side Python install: unit tests, the seam tests and the live browser integration tests all
-run in containers.
+run in containers. Without `make`, that is `docker compose run --rm cua pytest -q -m "not llm"`,
+preceded by the boundary check — see [Running without `make`](#running-without-make).
 
 ---
 
