@@ -46,6 +46,7 @@ repository root.
 | `make logs` | `docker compose logs -f` |
 | `make test` | the `boundary` check below, then `docker compose run --rm cua pytest -q -m "not llm"` |
 | `make test-schema` | `docker compose --profile test run --rm --build tests pytest -q -m "not llm and not integration"` |
+| *(no target — opt in)* | `docker compose run --rm cua pytest -v -m llm` — the 4 live-model tests, see [Running the tests](#running-the-tests) |
 | `make boundary` | `grep -r playwright src/cua --include="*.py" \| grep -v surface/` — must print nothing |
 | `make observe` | `docker compose run --rm cua python -m cua.cli observe` |
 | `make observe TENANT=/t/summit-cu` | `docker compose run --rm cua python -m cua.cli observe --tenant-prefix /t/summit-cu` |
@@ -277,6 +278,12 @@ What the model can and cannot see:
   model reads and what the recorder writes down cannot disagree.
 - **No credentials.** It types placeholder tokens which the tool layer substitutes on the way to
   the browser, so the transcript holds the placeholder and the recorder emits a `secret_ref`.
+  A model asked to sign on will sometimes type a credential it invented instead, so that is
+  **refused in front of the surface** rather than submitted — a guess is not a failed step, it is
+  a real authentication attempt against a real account, which is how automation walks into a
+  lockout. The refusal is returned *to the model*, which retries with the token, so the run
+  continues instead of dying at the login screen. The rule matches on the near-text label rather
+  than on `input type=password`, so it still means something on a surface with no DOM.
 - **One screenshot at the start, one after `stuck`.** Text observations everywhere else.
 
 Per accepted action the recorder scores the **full** candidate ladder against the live
@@ -301,8 +308,12 @@ Two genuine `gpt-4.1` runs are recorded in `evidence/`, each with `transcript.js
 Told not to act irreversibly, the model walked the entire sub-account form and then **stopped at
 the review screen and called `stuck`** — the safety rule holding on its own. Recording that
 capability therefore needs `--supervised`, an explicit off-by-default mode that swaps exactly one
-prompt rule. Unattended discovery still refuses, and once the policy gate exists it enforces the
-same asymmetry rather than trusting a prompt.
+prompt rule. Unattended discovery still refuses, and the policy gate enforces the same asymmetry
+rather than trusting a prompt: under the shipped `policy.yaml`, `--supervised` reaches the
+confirmation and is **still blocked**, because relaxing a prompt must not be enough to execute an
+irreversible action. Recording that step is a deliberate act — a person present *and* a policy
+edited to say so. All three of those paths are asserted against a live model in
+[`tests/test_discovery_llm.py`](tests/test_discovery_llm.py).
 
 Both artifacts are emitted as `draft`, reference credentials only as `secret_ref`, and contain no
 seeded password anywhere — there is a test that greps for it.
@@ -400,7 +411,7 @@ below has a one-line `docker compose` equivalent in [Running without `make`](#ru
 ```bash
 cp .env.example .env          # only OPENAI_* are needed, and only for discovery
 docker compose up --build -d  # app on :5000, runtime on :8080/:8081/:6080/:6081
-make test                     # 225 tests
+make test                     # 229 tests (the 4 `llm` ones are opted into separately)
 ```
 
 **1. Discovery — a model drives the UI once** *(needs `OPENAI_API_KEY`)*
@@ -531,6 +542,39 @@ make test
 No host-side Python install: unit tests, the seam tests and the live browser integration tests all
 run in containers. Without `make`, that is `docker compose run --rm cua pytest -q -m "not llm"`,
 preceded by the boundary check — see [Running without `make`](#running-without-make).
+
+**233 tests in three layers**, split by what each one needs:
+
+| Selection | Tests | Needs |
+|---|---|---|
+| `-m "not llm and not integration"` | 179 | nothing — no browser, no app, no key<sup>†</sup> |
+| `-m integration` | 50 | the CoreBank app and a browser |
+| `-m llm` | 4 | `OPENAI_API_KEY`, and spends real money |
+
+<sup>†</sup> `make test-schema` runs these in an image with no browser installed, where 177 pass and
+the 2 protocol-conformance checks skip for want of a driver — which is the point of running them
+there at all. In the full runtime all 179 pass.
+
+`make test` runs the first two (229). The `llm` tests are excluded by default and opted into
+explicitly, because a suite that quietly spends money on every run is a bad suite:
+
+```bash
+docker compose run --rm cua pytest -v -m llm
+```
+
+Roughly 100k tokens and ten minutes for all four. They are the only tests that cannot be faked:
+
+| Test | What a real model has to do |
+|---|---|
+| `a_real_model_run_produces_a_replayable_capability` | drive `lookup_member_balance` cold and emit an artifact that replays with the model gone |
+| `unattended_discovery_stops_rather_than_opening_the_account` | walk the sub-account form and stop — checked against the bank, not against the artifact's own story |
+| `the_gate_refuses_the_confirmation_even_when_the_prompt_permits_it` | be told it may confirm, and be blocked anyway by `enforcement.discovery.irreversible` |
+| `a_supervised_recording_captures_the_irreversible_step` | record the irreversible step under an explicit policy change, then replay it and return a *new* account number |
+
+Two guards keep these honest rather than merely green. A run the provider rate limited, and a run
+that never got past the sign-on, both **skip with their reason stated** — because a test that
+passes without having reached the screen it exists to check is worse than one that fails. The
+safety assertion (*no account was opened*) is checked before either guard can skip.
 
 ---
 
