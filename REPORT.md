@@ -211,6 +211,18 @@ un-opened. Replay may, because a human has already reviewed exactly which step
 is irreversible — but only once the artifact is `approved`, and approval is
 *earned* by `make stability` replaying it, not asserted in a field.
 
+**A credential the model invented is refused, not submitted.** Placeholder
+substitution kept the real values out of the transcript, but it assumed the
+model would use the tokens. Running discovery repeatedly against a live model
+showed it inventing a username and password instead in half the runs. A wrong
+guess is not a failed step: it spends a real authentication attempt against a
+real account, which is how automation walks into a lockout. Rewording the
+prompt did not hold — the same lesson as above — so the refusal sits in the
+tool layer in front of the surface, and is returned *to* the model, which then
+retries with the token instead of the run dying at the login screen. Of those
+six runs, two got as far as a failed sign-on and the third ran out of step
+budget first; after the refusal, none did.
+
 **Redaction at the sink**, on by default, with two mechanisms because they fail
 differently: exact secret values catch a credential in any shape; regex patterns
 catch regulated shapes nobody registered. Regulated screenshots are
@@ -235,6 +247,17 @@ and a guess that is wrong once has published a balance.
   cannot anticipate every regulated format.
 - **Fault injection is process-global**, so two concurrent runs would see each
   other's faults. Acceptable in a fixture, wrong in anything real.
+- **The credential refusal is label-shaped.** It matches the near-text beside
+  the box — `PASSWORD`, `USER ID` — rather than `input type=password`, so the
+  rule still means something on a surface with no DOM. The cost is an
+  app-shaped list: a sign-on that labels its field something else is not
+  covered, and the check cannot tell that it is not covered. It also only
+  stops the model *submitting* a guess; it does not stop it guessing, which it
+  still does in roughly two runs in three before correcting itself.
+- **The live-model tests can still skip.** A provider rate limit, or a run that
+  never gets past the sign-on, reports its reason rather than passing hollow.
+  Three consecutive clean full runs is evidence the causes are fixed, not a
+  guarantee that they cannot recur.
 
 ## 7. Cuts
 

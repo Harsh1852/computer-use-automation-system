@@ -466,3 +466,64 @@ still reads as breadth, the two to keep are overlays and approval.
   caught a real bug - `TENANT_ARGS` and `ASSIST` were silently dropped from
   the replay recipe - but "expands correctly" is weaker than "was executed",
   and it is worth knowing which one this is.
+
+## Phase 9 - live-model tests for the capability that creates
+
+One `llm`-marked test is thin coverage for the component with the most
+non-determinism in it. Three more were added for `open_subaccount`, the
+capability whose last step is irreversible, because the asymmetry is only
+really tested with a model in front of it. Running discovery that many times
+in a row is also what surfaced the defects below - none of which the scripted
+test could see, for the same reason as Phase 5.
+
+- **A credential the model invented is refused in front of the surface.**
+  Asked to open a sub-account, the model typed a username and password it
+  made up instead of the `{{APP_USER}}` and `{{APP_PASSWORD}}` tokens, in
+  three runs out of six. A guess is not a failed step: it spends a real
+  authentication attempt against a real account, which is how automation
+  trips a lockout. The refusal is a `ToolOutcome` rather than an exception -
+  the model reads it and retries with the token, so the run continues instead
+  of dying at the login screen. Two of those six got as far as a failed
+  sign-on and the third ran out of step budget first; after, none did. The
+  guessing did not stop - it happens in about two runs in three and is
+  corrected in-run, costing two tool calls out of the twenty-five.
+- **The prompt was tried first and did not hold.** Rule 4 already said "you
+  must never invent them". Making it longer and more specific changed nothing
+  measurable, which is the Phase 7 lesson again: a prompt is advisory, and
+  anything that must hold belongs in front of the surface. Rule 4 now tells
+  the model that a guess *is refused* - describing the mechanism rather than
+  asking to be obeyed, so a refusal it meets mid-run is not a surprise.
+- **The rule matches a label, not `input type=password`.** `UiNode` carries no
+  input type and the scan does not mark one, and adding both would put a DOM
+  concept into the schema that a desktop surface cannot honour. Matching the
+  near-text beside the box costs an app-shaped list of labels and cannot know
+  when it is not covering something - the weaker guarantee was worth keeping
+  the seam intact.
+- **A wrong hypothesis, corrected by evidence.** The first diagnosis was that
+  the model was swapping two identically-unnamed boxes. The transcripts said
+  otherwise: refs 6 and 9, correct order, every run. Six deterministic runs
+  confirmed the refs are stable and the labels are rendered, which left only
+  the values. Worth recording because the fix that follows a plausible
+  hypothesis is not a fix.
+- **A rate limit is a queue, not a verdict.** A 429 saying "try again in 1.1s"
+  was ending a run at step nine and reporting `error`. The SDK's own retry
+  budget is raised instead; the run's five-minute wall clock still bounds it,
+  so a rate limit cannot become a hang.
+- **A live-model test asserts the bank's state, not the artifact's story.**
+  "Nothing was opened" is read back over HTTP from the member's detail screen,
+  because an artifact reporting that it stopped is not evidence that it did.
+- **A test that cannot observe its subject skips, with the reason stated.** A
+  provider rate limit, or a run that never gets past the sign-on, is not a
+  finding about this system. The first version of the unattended test would
+  have *passed* on a failed sign-on - green without ever having seen the
+  confirmation screen, which is worse than red. The safety assertion is
+  checked before either guard can skip, so even an aborted run is still held
+  to "no account was opened".
+- **Recording the irreversible step needs a policy change, not just
+  `--supervised`.** Under the shipped `policy.yaml` the gate refuses the
+  CONFIRM click in discovery mode whatever the prompt says - verified by
+  driving the shipped artifact through a discovery-mode gate. So the
+  supervised recording test flips `enforcement.discovery.irreversible` in a
+  copy of the policy rather than editing the file, which keeps the shipped
+  default honest and makes the deliberateness explicit: a person present *and*
+  a policy that says so.
