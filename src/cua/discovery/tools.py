@@ -18,7 +18,7 @@ from typing import Any, Mapping
 
 from ..schema import Action, ActionType, ExtractFrom, Observation
 from ..surface.base import PolicyViolation, Surface
-from .prompts import render_for_model, substitute_secrets
+from .prompts import SECRET_TOKENS, near_hint, render_for_model, substitute_secrets
 
 TOOL_SPECS: list[dict[str, Any]] = [
     {
@@ -181,6 +181,14 @@ reads three outputs from one confirmation screen produces three identical
 observations while making perfect progress."""
 TERMINAL_TOOLS = {"done", "stuck"}
 
+CREDENTIAL_LABELS = ("PASSWORD", "USER ID", "USERID", "USERNAME", "USER NAME")
+"""Labels that mark a field the model must not fill in from its own head.
+
+Credential fields in these applications carry no accessible name, so this
+matches on the same near-text a human reads. It is a label test rather than a
+DOM test on purpose: the rule has to mean something on a desktop surface too,
+where there is no `input type=password` to inspect."""
+
 
 @dataclass
 class ToolOutcome:
@@ -243,6 +251,8 @@ class ToolBox:
 
         if name == "type":
             text, secret_ref = substitute_secrets(str(text or ""), self.secrets)
+            if refusal := self._invented_credential(before, node, secret_ref):
+                return refusal
         elif name == "select":
             # The chosen option is a value the caller supplied as surely as
             # typed text is, so it has to be bindable as a parameter.
@@ -297,6 +307,38 @@ class ToolBox:
             text=f"{confirmation}\n\n{render_for_model(after)}",
             observation_after=after,
             recorded=True,
+        )
+
+    def _invented_credential(
+        self, before: Observation, node, secret_ref: str | None
+    ) -> "ToolOutcome | None":
+        """Refuse a made-up credential instead of submitting it.
+
+        The prompt already tells the model to use the placeholder tokens, and
+        the model mostly does — but "mostly" is the wrong guarantee for a
+        sign-on. A guess does not merely fail: it spends a real authentication
+        attempt against a real account, which is how automation walks into a
+        lockout. So the refusal lives here, in front of the surface, next to
+        every other rule the model is not trusted to keep.
+
+        Returning it as a tool result rather than raising is deliberate — the
+        model reads the error and retries with the token, so the run continues
+        instead of dying at the login screen.
+        """
+        if secret_ref is not None or node is None:
+            return None
+        label = f"{node.name or ''} {near_hint(before, node) or ''}".upper()
+        if not any(marker in label for marker in CREDENTIAL_LABELS):
+            return None
+        tokens = ", ".join(sorted(SECRET_TOKENS))
+        return ToolOutcome(
+            text=(
+                "REFUSED: that field is a credential and the text you supplied "
+                "is not one of the placeholders. You do not know these values. "
+                f"Type one of {tokens} literally and the runtime will substitute "
+                "the real value."
+            ),
+            error="invented_credential",
         )
 
     def _build(self, name, args, text, secret_ref, node) -> Action:

@@ -134,7 +134,12 @@ class DiscoveryAgent:
 
         if not os.environ.get("OPENAI_API_KEY"):
             raise RuntimeError("OPENAI_API_KEY is not set; discovery needs model access")
-        return AsyncOpenAI()
+        # A per-minute token limit is a queue, not a verdict: the provider
+        # says how long to wait and the SDK honours it. Retrying is still
+        # bounded by the run's own wall clock, so this cannot turn a rate
+        # limit into a hang - and a run abandoned at step nine because of a
+        # one-second budget hiccup is the more expensive outcome.
+        return AsyncOpenAI(max_retries=5)
 
     # ------------------------------------------------------------- the loop
 

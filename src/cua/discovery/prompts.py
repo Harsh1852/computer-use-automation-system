@@ -41,8 +41,9 @@ use that to tell them apart.
 3. Call `observe` after any action that might change the screen. Refs are only \
 valid for the observation that produced them.
 4. To sign on, type the literal text {{APP_USER}} into the user id field and \
-{{APP_PASSWORD}} into the password field. The runtime substitutes the real \
-values; you will never see them and must never invent them.
+{{APP_PASSWORD}} into the password field. Never type a credential you made \
+up: you do not know these values, the runtime substitutes them, and a guess \
+is refused rather than submitted.
 5. Use `read` for every value the caller asked you to retrieve. A value you \
 only looked at is not an output.
 6. {irreversible_rule}
@@ -92,7 +93,7 @@ def goal_prompt(goal: str, entry_url: str) -> str:
     )
 
 
-def _near_hint(observation: Observation, node: UiNode) -> str | None:
+def near_hint(observation: Observation, node: UiNode) -> str | None:
     """The nearest named text to the left of / above an unnamed control.
 
     This is deliberately the same notion of proximity that the `near_text`
@@ -142,7 +143,7 @@ def render_for_model(observation: Observation) -> str:
         bits.append(f'"{node.name}"' if node.name else "(no name)")
         if node.value:
             bits.append(f"value={node.value!r}")
-        if hint := _near_hint(observation, node):
+        if hint := near_hint(observation, node):
             bits.append(f'near="{hint}"')
         bits.append(f"frame={frame}")
         if not node.enabled:

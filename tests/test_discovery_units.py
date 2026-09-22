@@ -11,6 +11,7 @@ import pytest
 from cua.discovery import Recorder, render_for_model, substitute_secrets, system_prompt
 from cua.discovery.agent import DiscoveryAgent
 from cua.discovery.recorder import RecordedStep
+from cua.discovery.tools import ToolBox
 from cua.schema import (
     ActionType,
     NameSource,
@@ -70,6 +71,68 @@ def test_credentials_reach_the_browser_but_not_the_model():
 def test_an_unset_credential_is_an_error_not_a_guess():
     with pytest.raises(KeyError, match="APP_PASSWORD"):
         substitute_secrets("{{APP_PASSWORD}}", {})
+
+
+def _login_screen() -> Observation:
+    """The sign-on screen: two unnamed boxes, labelled only by the text beside
+    them, which is what makes a guessed credential plausible to a model."""
+    return Observation(
+        url="http://app:5000/login",
+        title="SIGN ON",
+        frame_urls={"": "http://app:5000/login"},
+        nodes=[
+            UiNode(ref=4, role="row", name="USER ID", order=4),
+            UiNode(ref=5, role="cell", name="USER ID", order=5, container_ref=4),
+            UiNode(
+                ref=6, role="textbox", order=6, container_ref=4,
+                name_source=NameSource.NONE,
+            ),
+            UiNode(ref=7, role="row", name="PASSWORD", order=7),
+            UiNode(ref=8, role="cell", name="PASSWORD", order=8, container_ref=7),
+            UiNode(
+                ref=9, role="textbox", order=9, container_ref=7,
+                name_source=NameSource.NONE,
+            ),
+            UiNode(
+                ref=10, role="button", name="SIGN ON", order=10,
+                name_source=NameSource.VALUE,
+            ),
+        ],
+    )
+
+
+def _toolbox() -> ToolBox:
+    return ToolBox(None, None, {"APP_USER": "svc_agent", "APP_PASSWORD": "s3cret"})
+
+
+def test_a_guessed_password_never_reaches_the_login_form():
+    """A wrong guess is not a failed step, it is a spent authentication
+    attempt against a real account. It has to be refused, not submitted."""
+    screen = _login_screen()
+    refusal = _toolbox()._invented_credential(screen, screen.by_ref(9), None)
+
+    assert refusal is not None
+    assert refusal.error == "invented_credential"
+    assert "{{APP_PASSWORD}}" in refusal.text
+
+
+def test_the_user_id_box_is_protected_too():
+    screen = _login_screen()
+    assert _toolbox()._invented_credential(screen, screen.by_ref(6), None) is not None
+
+
+def test_the_placeholder_is_what_gets_through():
+    screen = _login_screen()
+    assert (
+        _toolbox()._invented_credential(screen, screen.by_ref(9), "APP_PASSWORD")
+        is None
+    )
+
+
+def test_an_ordinary_field_still_takes_a_literal():
+    """The rule is about credentials, not about typing."""
+    screen = _screen()
+    assert _toolbox()._invented_credential(screen, screen.by_ref(10), None) is None
 
 
 # ------------------------------------------------------------- the two modes
