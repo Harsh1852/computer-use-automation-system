@@ -46,7 +46,7 @@ repository root.
 | `make logs` | `docker compose logs -f` |
 | `make test` | the `boundary` check below, then `docker compose run --rm cua pytest -q -m "not llm"` |
 | `make test-schema` | `docker compose --profile test run --rm --build tests pytest -q -m "not llm and not integration"` |
-| *(no target — opt in)* | `docker compose run --rm cua pytest -v -m llm` — the 4 live-model tests, see [Running the tests](#running-the-tests) |
+| `make test-llm` | `docker compose run --rm cua pytest -v -m llm` — the 4 live-model tests, opted into by name, see [Running the tests](#running-the-tests) |
 | `make boundary` | `grep -r playwright src/cua --include="*.py" \| grep -v surface/` — must print nothing |
 | `make observe` | `docker compose run --rm cua python -m cua.cli observe` |
 | `make observe TENANT=/t/summit-cu` | `docker compose run --rm cua python -m cua.cli observe --tenant-prefix /t/summit-cu` |
@@ -592,10 +592,11 @@ the 2 protocol-conformance checks skip for want of a driver — which is the poi
 there at all. In the full runtime all 179 pass.
 
 `make test` runs the first two (229). The `llm` tests are excluded by default and opted into
-explicitly, because a suite that quietly spends money on every run is a bad suite:
+explicitly, because a suite that quietly spends money on every run is a bad suite. They have
+their own target, which nothing else depends on, so typing it is the consent:
 
 ```bash
-docker compose run --rm cua pytest -v -m llm
+make test-llm
 ```
 
 Roughly 100k tokens and ten minutes for all four. They are the only tests that cannot be faked:

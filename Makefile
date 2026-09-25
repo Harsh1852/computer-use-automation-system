@@ -1,7 +1,7 @@
 APP_URL ?= http://localhost:5000
 
-.PHONY: help up down logs reset inject faults test test-schema boundary observe \
-        replay discover escalation-demo catalog agent-demo stability
+.PHONY: help up down logs reset inject faults test test-schema test-llm boundary \
+        observe replay discover escalation-demo catalog agent-demo stability
 
 help:
 	@echo "up                 bring up the stack"
@@ -9,6 +9,7 @@ help:
 	@echo "logs               follow logs"
 	@echo "test               run the test suite (everything except llm)"
 	@echo "test-schema        run the driver-free tests in an image with no browser"
+	@echo "test-llm           run the 4 live-model tests (needs a key, spends money)"
 	@echo "boundary           assert no driver type escapes src/cua/surface/"
 	@echo "observe            print the live observation as a flat table"
 	@echo "reset              clear injected faults and reseed the target app"
@@ -22,6 +23,14 @@ test: boundary
 test-schema:
 	docker compose --profile test run --rm --build tests \
 	  pytest -q -m "not llm and not integration"
+
+# The four live-model tests. Deliberately not a prerequisite of `test`, and
+# not reachable from it: they need OPENAI_API_KEY and spend real money -
+# roughly 100k tokens and ten minutes - so they are opted into by name. A
+# suite that quietly bills you on every run is a bad suite; typing the
+# target is the consent.
+test-llm:
+	docker compose run --rm cua pytest -v -m llm
 
 boundary:
 	@! grep -r "playwright" src/cua --include="*.py" | grep -v "surface/" \
