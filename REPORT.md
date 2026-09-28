@@ -39,7 +39,7 @@ explicitly says is not rewarded. Three containers only where isolation is real:
 the target app runs on a plain image so the automation has no privileged path
 into the thing it is automating.
 
-**Trade-off accepted:** perception is ~200 lines of injected JavaScript we own,
+**Trade-off accepted:** perception is ~260 lines of injected JavaScript we own,
 rather than the driver's accessibility snapshot. We needed role + name, coverage
 of *every* frame, a stable handle back to the element, and a shape a UIA/AX
 surface could fill identically. No single driver API gives all four, and the
@@ -69,14 +69,16 @@ week, which is worse than no check. And `extra="forbid"` means an older reader
 rejects a newer artifact outright — that cost is accepted, and is what
 `schema_version` exists for.
 
-Results are a three-arm discriminated union, never a boolean plus exceptions.
-All three arms carry `capability_id`, `version` and `run_id`, because a result
-that cannot say what produced it cannot be debugged.
+Results are a three-arm discriminated union, never a boolean plus
+exceptions. All three arms carry `capability_id`, `capability_version` and
+`run_id`, because a result that cannot say what produced it cannot be
+debugged.
 
 ## 3. Determinism & error handling
 
 **Locators.** A recorded ladder drawn from six strategies — four portable, plus
-`css`/`xpath` — tried in order; the shipped artifacts use three. Two rules:
+`css`/`xpath` — tried in order; across the shipped artifacts only `label_text`
+goes unused, and no recorded ladder is deeper than three rungs. Two rules:
 *ambiguity is a miss* — a rung matching more than one node is recorded and
 skipped, never resolved by taking the first — and *every attempt is kept*, so a
 `TARGET_NOT_FOUND` reports each rung's count plus the same-role nodes that were
@@ -127,9 +129,9 @@ is the generalised containment path: frame names on the web, window/pane
 hierarchy on desktop. `container_ref` and `order` give `near_text` a notion of
 proximity that means the same thing on a surface with no DOM.
 
-**What a `DesktopSurface` implements:** the ten members of the `Surface`
+**What a `DesktopSurface` implements:** the twelve members of the `Surface`
 Protocol — `observe`, `find`, `resolve`, `act`, `snapshot`, `start`, `close`,
-`pause`, `resume`, `watch_human_actions` — plus `handle_for` and
+`pause`, `resume`, `watch_human_actions`, `handle_for` and
 `native_locator`. It does **not** implement the locator ladder, the detectors,
 the executor or the schema. Only `css` and `xpath` reach the driver; the four
 portable rungs resolve by filtering `UiNode`s in Python, so such a surface
@@ -224,8 +226,8 @@ real account, which is how automation walks into a lockout. Rewording the
 prompt did not hold — the same lesson as above — so the refusal sits in the
 tool layer in front of the surface, and is returned *to* the model, which then
 retries with the token instead of the run dying at the login screen. Of those
-six runs, two got as far as a failed sign-on and the third ran out of step
-budget first; after the refusal, none did.
+three, two got as far as a failed sign-on and the third ran out of step budget
+first; after the refusal, none did.
 
 **Redaction at the sink**, on by default, with two mechanisms because they fail
 differently: exact secret values catch a credential in any shape; regex patterns
@@ -271,9 +273,11 @@ and a guess that is wrong once has published a balance.
   implementation would supply, but nothing implements it.
 - **No queue, workers, or multi-tenant infrastructure.** The brief says this is
   not rewarded. The abstractions are shaped so it could be added; it is not.
-- **The operator console is intentionally minimal** — four endpoints and inline
-  HTML. The mechanism underneath is the interesting part, and a polished UI
-  would have been a worse use of the effort.
+- **The operator console is intentionally minimal** — two inline-HTML pages
+  and nine small routes: take, release and abort, each as a form post and a
+  JSON call, plus three read-only feeds. The mechanism underneath is the
+  interesting part, and a polished UI would have been a worse use of the
+  effort.
 - **Interventions are in-memory.** Persisting them is the first step towards the
   queue that was explicitly out of scope.
 - **Single process**, as above.

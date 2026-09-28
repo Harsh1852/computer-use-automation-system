@@ -90,7 +90,7 @@ Deviations from the original sketch, each one a deliberate tightening:
   ARIA-snapshot replacement returns a string. So `scan.js` computes the same
   information from the same inputs (ARIA attributes, label association,
   implicit roles) and returns descriptors alongside the elements they describe.
-  Trade-off: roughly 200 lines of JS we own, against a perception layer that
+  Trade-off: roughly 260 lines of JS we own, against a perception layer that
   actually covers the target and can be mirrored on a desktop surface.
 - **The locator ladder lives in `walk_ladder` in `surface/base.py`, not in each
   surface.** Surfaces implement `find(candidate) -> list[Handle]`; "try the
@@ -465,7 +465,7 @@ still reads as breadth, the two to keep are overlays and approval.
   through `scrub_evidence`.
 - **`make` is not installed on the machine this was built on.** Every demo was
   run as its underlying `docker compose` command; the Makefile targets were
-  verified by expanding all seventeen with `make -n` in a container. That
+  verified by expanding all eighteen with `make -n` in a container. That
   caught a real bug - `TENANT_ARGS` and `ASSIST` were silently dropped from
   the replay recipe - but "expands correctly" is weaker than "was executed",
   and it is worth knowing which one this is.
@@ -486,7 +486,7 @@ test could see, for the same reason as Phase 5.
   authentication attempt against a real account, which is how automation
   trips a lockout. The refusal is a `ToolOutcome` rather than an exception -
   the model reads it and retries with the token, so the run continues instead
-  of dying at the login screen. Two of those six got as far as a failed
+  of dying at the login screen. Two of those three got as far as a failed
   sign-on and the third ran out of step budget first; after, none did. The
   guessing did not stop - it happens in about two runs in three and is
   corrected in-run, costing two tool calls out of the twenty-five.
@@ -530,3 +530,16 @@ test could see, for the same reason as Phase 5.
   copy of the policy rather than editing the file, which keeps the shipped
   default honest and makes the deliberateness explicit: a person present *and*
   a policy that says so.
+- **A goal that stops short of the output leaves the contract to chance.** The
+  supervised test asserts that the recording declares the new account number,
+  but the goal only asked to reach the confirmation screen. The recorder
+  records an output the run actually read and drops one it did not, so whether
+  the capability had an output at all came down to the model's own path: the
+  shipped recording read the number, the next run reached the same screen and
+  did not, with nothing changed but the model. A capability whose point is
+  that it *creates* has to return what it created, so the supervised goal now
+  names the read. The two tests that must stop *before* the confirmation keep
+  the original goal - asking them for a number they are forbidden to reach
+  would pull against the rule they exist to check. Found by running the suite,
+  not by reading it, which is the Phase 5 lesson once more: only a real model
+  picks a path nobody wrote down.

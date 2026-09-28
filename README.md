@@ -199,12 +199,15 @@ make boundary        # grep -r playwright src/cua | grep -v surface/  must be em
 make test-schema     # the schema and seam tests pass in an image with no browser installed
 ```
 
-A new surface implements ten things: the perception and actuation core — `observe`, `find`,
+A new surface implements twelve things: the perception and actuation core — `observe`, `find`,
 `resolve`, `act`, `snapshot` — plus `start`/`close` for lifecycle, `pause`/`resume` for the
-handoff, and `watch_human_actions` so an operator's steps reach the audit trail. It does **not**
-implement the locator ladder — `walk_ladder` is shared policy, because "try the primary, then
-fallbacks in order, and treat an ambiguous match as a miss" is a rule about robustness, not
-about browsers. A `DesktopSurface` supplies perception and actuation; determinism is inherited.
+handoff, `watch_human_actions` so an operator's steps reach the audit trail, `handle_for` to
+turn an observation `ref` back into something actionable, and `native_locator` for the
+surface's own last-resort rung — a surface with no DOM answers `None` there and contributes no
+brittle rung. It does **not** implement the locator ladder — `walk_ladder` is shared policy,
+because "try the primary, then fallbacks in order, and treat an ambiguous match as a miss" is a
+rule about robustness, not about browsers. A `DesktopSurface` supplies perception and
+actuation; determinism is inherited.
 
 **Only `css` and `xpath` touch the driver.** The four portable rungs (`a11y_role_name`,
 `label_text`, `near_text`, `exact_text`) resolve by filtering `UiNode`s in Python. A surface with
@@ -369,6 +372,7 @@ mislabelled:
 02:16:11.422  human.action         kind=change name=USER ID   value=<redacted:9 chars>
 02:16:11.507  human.action         kind=change name=PASSWORD  value=<password>
 02:16:11.509  human.action         kind=click  name=SIGN ON
+02:16:11.511  human.action         kind=submit role=form
 02:16:11.554  intervention.closed  outcome=released human_steps=4
 02:16:14.357  run.finish           status=success steps_executed=7
 ```

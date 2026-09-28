@@ -42,6 +42,21 @@ SUBACCOUNT_GOAL = (
     "an initial deposit of 50.00, funded from their existing checking account, "
     "and reach the confirmation screen."
 )
+# The supervised test asks for one thing more: the number the confirmation
+# screen shows. The recorder only records an output the run actually read, so
+# a goal that stops at "reach the confirmation screen" leaves whether the
+# capability has an output up to the model - it read the number in the shipped
+# recording and did not in the next run, with nothing changed but the model's
+# own path. A capability whose point is that it *creates* has to return what it
+# created, so the goal says so rather than hoping. The two tests that must stop
+# *before* the confirmation keep the goal above, unchanged: asking them for a
+# number they are forbidden to reach would be pulling against the rule they
+# exist to check.
+SUBACCOUNT_GOAL_WITH_NUMBER = (
+    "For member 10001, open a new SAVINGS sub-account nicknamed VACATION with "
+    "an initial deposit of 50.00, funded from their existing checking account, "
+    "reach the confirmation screen, and read the new account number."
+)
 MEMBER = "10001"
 SEEDED_SUBACCOUNTS = {"10001-S01", "10001-C01"}
 
@@ -350,7 +365,7 @@ async def test_a_supervised_recording_captures_the_irreversible_step(tmp_path):
 
     result, recorder, capability, _ = await discover(
         tmp_path,
-        goal=SUBACCOUNT_GOAL,
+        goal=SUBACCOUNT_GOAL_WITH_NUMBER,
         name="supervised",
         supervised=True,
         policy=_policy_allowing_irreversible_discovery(),

@@ -1,6 +1,7 @@
 """The operator console.
 
-Intentionally minimal: four endpoints and some inline HTML. The console is
+Intentionally minimal: two inline-HTML pages, take/release/abort offered as
+both form posts and JSON calls, and three read-only feeds. The console is
 not the interesting part — the mechanism underneath it is — and a polished UI
 here would be a worse use of the page than making the control transfer real.
 What it does have to be is *honest about who holds the session*, and it is.
